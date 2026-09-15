@@ -1299,9 +1299,7 @@ DataPilot is being developed incrementally, with each phase focusing on understa
 # Author
 
 **Devika Janardhanan**
+**Sonu Prabha EP**
 
 B.Tech Computer Science & Engineering — Data Analytics
 
-**Areas of Interest**
-
-Data Analytics · AI Engineering · Agentic AI · Full-Stack Development · Data Engineering
