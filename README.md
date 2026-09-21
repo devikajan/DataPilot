@@ -928,17 +928,17 @@ datapilot/
 
 ## Phase 1 — Web Application
 
-- [ ] Next.js setup
-- [ ] React components
-- [ ] TypeScript
-- [ ] Tailwind CSS
-- [ ] Dashboard interface
-- [ ] Navigation
-- [ ] Dataset interface
+- [x] Next.js setup
+- [x] React components
+- [x] TypeScript
+- [x] Tailwind CSS
+- [x] Dashboard interface
+- [x] Navigation
+- [x] Dataset interface
 
 ## Phase 2 — Backend
 
-- [ ] FastAPI
+- [x] FastAPI
 - [ ] REST APIs
 - [ ] Pydantic validation
 - [ ] CORS
@@ -1299,6 +1299,7 @@ DataPilot is being developed incrementally, with each phase focusing on understa
 # Author
 
 **Devika Janardhanan**
+
 **Sonu Prabha EP**
 
 B.Tech Computer Science & Engineering — Data Analytics
