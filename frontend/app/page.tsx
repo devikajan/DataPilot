@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import DatasetUpload from "@/components/DatasetUpload";
 import { motion } from "framer-motion";
 import {
@@ -69,6 +70,7 @@ const navItems = [
 ];
 
 export default function Home() {
+  const [datasetResult, setDatasetResult] = useState<any>(null);
   return (
     <main className="min-h-screen overflow-hidden bg-[#070A13] text-white">
       {/* Background glow */}
@@ -242,7 +244,177 @@ export default function Home() {
                     Drop a CSV or Excel file here to get started
                   </p>
 
-                  <DatasetUpload />
+                  <DatasetUpload onUploadSuccess={setDatasetResult} 
+                  />
+                  {datasetResult && (
+  <div className="mt-6 grid gap-4 md:grid-cols-4">
+    {/* Rows */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p className="text-sm text-gray-400">Rows</p>
+      <p className="mt-1 text-3xl font-bold">
+        {datasetResult.profile.rows}
+      </p>
+    </div>
+
+    {/* Columns */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p className="text-sm text-gray-400">Columns</p>
+      <p className="mt-1 text-3xl font-bold">
+        {datasetResult.profile.columns}
+      </p>
+    </div>
+
+    {/* Duplicate Rows */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p className="text-sm text-gray-400">Duplicate Rows</p>
+      <p className="mt-1 text-3xl font-bold">
+        {datasetResult.profile.duplicate_rows}
+      </p>
+    </div>
+
+    {/* Data Quality */}
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <p className="text-sm text-gray-400">Data Quality</p>
+
+      <p className="mt-1 text-3xl font-bold">
+        {datasetResult.profile.quality?.status ?? "Unknown"}
+      </p>
+    </div>
+  </div>
+)}
+{datasetResult?.profile?.quality?.warnings?.length > 0 && (
+  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
+    <p className="text-sm font-semibold text-amber-300">
+      Data Quality Warnings
+    </p>
+
+    <div className="mt-3 space-y-2">
+      {datasetResult.profile.quality.warnings.map(
+        (warning: any, index: number) => (
+          <p key={index} className="text-sm text-white/60">
+            {warning.message}
+          </p>
+        )
+      )}
+    </div>
+  </div>
+)}
+{datasetResult?.profile?.column_details?.length > 0 && (
+  <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+    {/* Header */}
+    <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+      <div>
+        <h3 className="text-lg font-semibold text-white">
+          Column Analysis
+        </h3>
+
+        <p className="mt-1 text-sm text-white/40">
+          Overview of your dataset columns and data quality
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
+        {datasetResult.profile.column_details.length} columns
+      </div>
+    </div>
+
+    {/* Table */}
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[700px]">
+        <thead>
+          <tr className="border-b border-white/10 bg-white/[0.02]">
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Column
+            </th>
+
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Data Type
+            </th>
+
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Missing
+            </th>
+
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Unique
+            </th>
+
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Status
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {datasetResult.profile.column_details.map(
+            (column: any, index: number) => (
+              <tr
+                key={index}
+                className="group border-b border-white/5 transition-colors hover:bg-white/[0.04]"
+              >
+                {/* Column */}
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-400/20 bg-blue-400/10 text-xs font-semibold text-blue-300">
+                      {column.name.charAt(0).toUpperCase()}
+                    </div>
+
+                    <span className="font-medium text-white">
+                      {column.name}
+                    </span>
+                  </div>
+                </td>
+
+                {/* Data Type */}
+                <td className="px-6 py-4">
+                  <span className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/60">
+                    {column.data_type}
+                  </span>
+                </td>
+
+                {/* Missing */}
+                <td className="px-6 py-4">
+                  <div>
+                    <p className="text-sm text-white">
+                      {column.missing_values}
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-white/30">
+                      {column.missing_percentage}%
+                    </p>
+                  </div>
+                </td>
+
+                {/* Unique */}
+                <td className="px-6 py-4">
+                  <span className="text-sm text-white/70">
+                    {column.unique_values}
+                  </span>
+                </td>
+
+                {/* Status */}
+                <td className="px-6 py-4">
+                  {column.missing_values === 0 ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      Clean
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      Missing Data
+                    </span>
+                  )}
+                </td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
 
                   <p className="mt-3 text-xs text-white/25">
                     CSV · XLSX · XLS

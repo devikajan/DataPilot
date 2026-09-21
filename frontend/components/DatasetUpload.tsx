@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { FileSpreadsheet, Upload, X } from "lucide-react";
 
-export default function DatasetUpload() {
+type DatasetUploadProps = {
+  onUploadSuccess: (data: any) => void;
+};
+
+export default function DatasetUpload({
+  onUploadSuccess,
+}: DatasetUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -47,7 +53,7 @@ export default function DatasetUpload() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/datasets/upload",
+        "http://localhost:8000/datasets/upload",
         {
           method: "POST",
           body: formData,
@@ -55,6 +61,7 @@ export default function DatasetUpload() {
       );
 
       const data = await response.json();
+      console.log("UPLOAD RESPONSE:", data);
 
       if (!response.ok) {
         throw new Error(data.detail || "Upload failed.");
@@ -63,6 +70,7 @@ export default function DatasetUpload() {
       setMessage(
         `Uploaded successfully: ${data.profile.rows} rows × ${data.profile.columns} columns`
       );
+      onUploadSuccess(data);
     } catch (error) {
       setMessage(
         error instanceof Error
