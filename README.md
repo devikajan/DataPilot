@@ -1300,7 +1300,6 @@ DataPilot is being developed incrementally, with each phase focusing on understa
 
 **Devika Janardhanan**
 
-**Sonu Prabha EP**
 
 B.Tech Computer Science & Engineering — Data Analytics
 
