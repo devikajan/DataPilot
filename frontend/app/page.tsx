@@ -1,7 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import DatasetUpload from "@/components/DatasetUpload";
 import { motion } from "framer-motion";
+import { useDataset } from "@/components/DatasetContext";
 import {
   Activity,
   ArrowUpRight,
@@ -70,7 +72,9 @@ const navItems = [
 ];
 
 export default function Home() {
+  const { setDataset } = useDataset();
   const [datasetResult, setDatasetResult] = useState<any>(null);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#070A13] text-white">
       {/* Background glow */}
@@ -105,32 +109,42 @@ export default function Home() {
               Workspace
             </p>
 
-            <nav className="mt-4 space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
+           <nav className="mt-4 space-y-1">
+  {navItems.map((item) => {
+    const Icon = item.icon;
 
-                return (
-                  <button
-                    key={item.label}
-                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition ${
-                      item.active
-                        ? "bg-white/[0.08] text-white shadow-sm"
-                        : "text-white/45 hover:bg-white/[0.05] hover:text-white"
-                    }`}
-                  >
-                    <Icon
-                      size={18}
-                      className={
-                        item.active
-                          ? "text-blue-400"
-                          : "text-white/40 group-hover:text-white"
-                      }
-                    />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
+    const href =
+      item.label === "Overview"
+        ? "/"
+        : item.label === "Datasets"
+        ? "/datasets"
+        : item.label === "AI Analyst"
+        ? "/ai-analyst"
+        : "/insights";
+
+    return (
+      <Link
+        key={item.label}
+        href={href}
+        className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition ${
+          item.active
+            ? "bg-white/[0.08] text-white shadow-sm"
+            : "text-white/45 hover:bg-white/[0.05] hover:text-white"
+        }`}
+      >
+        <Icon
+          size={18}
+          className={
+            item.active
+              ? "text-blue-400"
+              : "text-white/40 group-hover:text-white"
+          }
+        />
+        {item.label}
+      </Link>
+    );
+  })}
+</nav>  
           </div>
 
           {/* Bottom */}
@@ -244,8 +258,12 @@ export default function Home() {
                     Drop a CSV or Excel file here to get started
                   </p>
 
-                  <DatasetUpload onUploadSuccess={setDatasetResult} 
-                  />
+                  <DatasetUpload
+  onUploadSuccess={(data) => {
+    setDatasetResult(data);
+    setDataset(data);
+  }}
+/>
                   {datasetResult && (
   <div className="mt-6 grid gap-4 md:grid-cols-4">
     {/* Rows */}
