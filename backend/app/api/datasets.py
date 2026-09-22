@@ -45,8 +45,11 @@ async def upload_dataset(file: UploadFile = File(...)):
 
     profile = profile_dataset(df)
 
+    preview = df.head(10).fillna("").to_dict(orient="records")
+
     return {
         "filename": file.filename,
         "message": "Dataset uploaded successfully",
         "profile": profile,
+        "preview": preview,
     }

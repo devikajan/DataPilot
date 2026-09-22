@@ -301,7 +301,6 @@ export default function Home() {
 )}
 {datasetResult?.profile?.column_details?.length > 0 && (
   <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-    {/* Header */}
     <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
       <div>
         <h3 className="text-lg font-semibold text-white">
@@ -318,9 +317,8 @@ export default function Home() {
       </div>
     </div>
 
-    {/* Table */}
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[700px]">
+      <table className="w-full min-w-[850px]">
         <thead>
           <tr className="border-b border-white/10 bg-white/[0.02]">
             <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
@@ -337,6 +335,10 @@ export default function Home() {
 
             <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
               Unique
+            </th>
+
+            <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+              Statistics
             </th>
 
             <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40">
@@ -392,6 +394,38 @@ export default function Home() {
                   </span>
                 </td>
 
+                {/* Statistics */}
+                <td className="px-6 py-4">
+                  {column.statistics ? (
+                    <div className="space-y-1 text-xs text-white/50">
+                      <p>
+                        Min:{" "}
+                        <span className="text-white/80">
+                          {column.statistics.min}
+                        </span>
+                      </p>
+
+                      <p>
+                        Max:{" "}
+                        <span className="text-white/80">
+                          {column.statistics.max}
+                        </span>
+                      </p>
+
+                      <p>
+                        Mean:{" "}
+                        <span className="text-white/80">
+                          {column.statistics.mean}
+                        </span>
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-white/30">
+                      Not applicable
+                    </span>
+                  )}
+                </td>
+
                 {/* Status */}
                 <td className="px-6 py-4">
                   {column.missing_values === 0 ? (
@@ -406,6 +440,69 @@ export default function Home() {
                     </span>
                   )}
                 </td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+{datasetResult?.preview?.length > 0 && (
+  <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+    {/* Header */}
+    <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+      <div>
+        <h3 className="text-lg font-semibold text-white">
+          Dataset Preview
+        </h3>
+
+        <p className="mt-1 text-sm text-white/40">
+          Preview of the first rows from your uploaded dataset
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
+        Preview · {datasetResult.preview.length} of {datasetResult.profile.rows} rows
+      </div>
+    </div>
+
+    {/* Table */}
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-max">
+        <thead>
+          <tr className="border-b border-white/10 bg-white/[0.02]">
+            {Object.keys(datasetResult.preview[0]).map(
+              (column) => (
+                <th
+                  key={column}
+                  className="whitespace-nowrap px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/40"
+                >
+                  {column}
+                </th>
+              )
+            )}
+          </tr>
+        </thead>
+
+        <tbody>
+          {datasetResult.preview.map(
+            (row: any, rowIndex: number) => (
+              <tr
+                key={rowIndex}
+                className="border-b border-white/5 transition-colors hover:bg-white/[0.04]"
+              >
+                {Object.values(row).map(
+                  (value: any, columnIndex: number) => (
+                    <td
+                      key={columnIndex}
+                      className="max-w-[250px] truncate whitespace-nowrap px-6 py-4 text-sm text-white/70"
+                      title={String(value)}
+                    >
+                      {String(value)}
+                    </td>
+                  )
+                )}
               </tr>
             )
           )}
