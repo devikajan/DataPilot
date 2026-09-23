@@ -3,6 +3,7 @@
 import { useDataset } from "@/components/DatasetContext";
 import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
+import AutoChart from "@/components/AutoChart";
 
 import {
   Database,
@@ -77,6 +78,13 @@ export default function InsightsPage() {
   const timeSeriesSummary = analysisInsights.find(
     (insight: any) => insight.type === "time_series_summary"
   );
+  const chartRecommendations = analysisInsights.find(
+  (insight: any) => insight.type === "chart_recommendations"
+);
+
+  const outlierAnalysis = analysisInsights.find(
+  (insight: any) => insight.type === "outlier_analysis"
+);
 
   const numericColumns = profile.column_details.filter(
     (column: any) => column.statistics
@@ -369,6 +377,200 @@ export default function InsightsPage() {
           )}
 
         </section>
+
+        {/* =====================================================
+    AUTOMATIC VISUALIZATIONS
+====================================================== */}
+
+{chartRecommendations &&
+  chartRecommendations.data?.length > 0 && (
+    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+          Visualization Engine
+        </p>
+
+        <h2 className="mt-2 text-lg font-semibold">
+          Automatic Visualizations
+        </h2>
+
+        <p className="mt-1 text-sm text-white/40">
+          Charts automatically selected based on your dataset structure.
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+
+        {chartRecommendations.data
+          .slice(0, 8)
+          .map((recommendation: any, index: number) => {
+
+            const chartData = dataset.preview ?? [];
+
+            return (
+              <div
+                key={`${recommendation.chart_type}-${recommendation.x}-${recommendation.y}-${index}`}
+                className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+              >
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">
+                      {recommendation.y
+                        ? `${recommendation.y} by ${recommendation.x}`
+                        : `${recommendation.x} Distribution`}
+                    </h3>
+
+                    <p className="mt-1 text-xs uppercase tracking-wider text-white/30">
+                      {recommendation.chart_type} chart
+                    </p>
+                  </div>
+
+                </div>
+
+                <AutoChart
+                  chartType={recommendation.chart_type}
+                  data={chartData}
+                  x={recommendation.x}
+                  y={recommendation.y}
+                />
+
+              </div>
+            );
+          })}
+
+      </div>
+
+    </section>
+  )}
+
+        {/* =====================================================
+    OUTLIER ANALYSIS
+====================================================== */}
+
+{outlierAnalysis &&
+  Object.keys(outlierAnalysis.data || {}).length > 0 && (
+    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+          Statistical Analysis
+        </p>
+
+        <h2 className="mt-2 text-lg font-semibold">
+          Outlier Analysis
+        </h2>
+
+        <p className="mt-1 text-sm text-white/40">
+          Potential outliers detected using the 1.5 × IQR statistical rule.
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+        {Object.entries(outlierAnalysis.data).map(
+          ([columnName, stats]: [string, any]) => (
+            <div
+              key={columnName}
+              className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+            >
+
+              <div className="flex items-center justify-between">
+
+                <h3 className="text-sm font-semibold text-white">
+                  {columnName}
+                </h3>
+
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    stats.outlier_count > 0
+                      ? "bg-amber-400/10 text-amber-300"
+                      : "bg-emerald-400/10 text-emerald-300"
+                  }`}
+                >
+                  {stats.outlier_count} outliers
+                </span>
+
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+
+                <div className="rounded-lg bg-white/[0.04] p-3">
+                  <p className="text-xs text-white/35">
+                    Outlier %
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {stats.outlier_percentage}%
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white/[0.04] p-3">
+                  <p className="text-xs text-white/35">
+                    IQR
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {stats.iqr}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white/[0.04] p-3">
+                  <p className="text-xs text-white/35">
+                    Lower Bound
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white/80">
+                    {stats.lower_bound}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-white/[0.04] p-3">
+                  <p className="text-xs text-white/35">
+                    Upper Bound
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium text-white/80">
+                    {stats.upper_bound}
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+
+                <div>
+                  <p className="text-xs text-white/30">
+                    Q1
+                  </p>
+
+                  <p className="mt-1 text-sm text-white/60">
+                    {stats.q1}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-white/30">
+                    Q3
+                  </p>
+
+                  <p className="mt-1 text-sm text-white/60">
+                    {stats.q3}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+          )
+        )}
+
+      </div>
+
+    </section>
+  )}
 
         {/* =====================================================
             CATEGORICAL ANALYSIS

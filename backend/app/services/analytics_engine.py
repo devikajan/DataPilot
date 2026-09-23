@@ -1,5 +1,5 @@
 import pandas as pd
-
+from app.services.chart_recommender import recommend_charts
 
 def generate_insights(df: pd.DataFrame) -> dict:
     insights = []
@@ -210,6 +210,59 @@ def generate_insights(df: pd.DataFrame) -> dict:
         "data": time_series_data,
     })
 
+        # ---------------------------------------------------------
+    # Outlier analysis
+    # ---------------------------------------------------------
+
+    outlier_data = {}
+
+    for column in numeric_columns:
+
+        series = df[column].dropna()
+
+        if len(series) == 0:
+            continue
+
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+
+        iqr = q3 - q1
+
+        lower_bound = q1 - (1.5 * iqr)
+        upper_bound = q3 + (1.5 * iqr)
+
+        outliers = series[
+            (series < lower_bound) |
+            (series > upper_bound)
+        ]
+
+        outlier_count = int(outliers.count())
+        total_values = int(series.count())
+
+        outlier_percentage = (
+            (outlier_count / total_values) * 100
+            if total_values > 0
+            else 0
+        )
+
+        outlier_data[column] = {
+            "q1": safe_value(q1),
+            "q3": safe_value(q3),
+            "iqr": safe_value(iqr),
+            "lower_bound": safe_value(lower_bound),
+            "upper_bound": safe_value(upper_bound),
+            "outlier_count": outlier_count,
+            "outlier_percentage": round(
+                outlier_percentage,
+                2
+            ),
+        }
+
+    insights.append({
+        "type": "outlier_analysis",
+        "data": outlier_data,
+    })
+
     # ---------------------------------------------------------
     # Correlations
     # ---------------------------------------------------------
@@ -248,6 +301,17 @@ def generate_insights(df: pd.DataFrame) -> dict:
         "datetime_column_count": len(datetime_columns),
         "duplicate_rows": duplicate_rows,
         "missing_value_count": int(df.isna().sum().sum()),
+    })
+
+        # ---------------------------------------------------------
+    # Chart recommendations
+    # ---------------------------------------------------------
+
+    chart_recommendations = recommend_charts(df)
+
+    insights.append({
+        "type": "chart_recommendations",
+        "data": chart_recommendations,
     })
 
     # ---------------------------------------------------------
