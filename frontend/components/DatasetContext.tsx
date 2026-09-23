@@ -7,6 +7,7 @@ type Dataset = {
   message: string;
   profile: any;
   preview: any[];
+  analysis?: any;
 };
 
 type DatasetContextType = {
@@ -14,9 +15,9 @@ type DatasetContextType = {
   setDataset: (dataset: Dataset) => void;
 };
 
-const DatasetContext = createContext<
-  DatasetContextType | undefined
->(undefined);
+const DatasetContext = createContext<DatasetContextType | undefined>(
+  undefined
+);
 
 export function DatasetProvider({
   children,
@@ -41,9 +42,7 @@ export function useDataset() {
   const context = useContext(DatasetContext);
 
   if (!context) {
-    throw new Error(
-      "useDataset must be used inside DatasetProvider"
-    );
+    throw new Error("useDataset must be used inside DatasetProvider");
   }
 
   return context;

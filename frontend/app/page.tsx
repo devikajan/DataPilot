@@ -258,10 +258,49 @@ export default function Home() {
                     Drop a CSV or Excel file here to get started
                   </p>
 
-                  <DatasetUpload
-  onUploadSuccess={(data) => {
+                 <DatasetUpload
+  onUploadSuccess={async (data) => {
     setDatasetResult(data);
-    setDataset(data);
+
+    try {
+      const formData = new FormData();
+
+      const fileInput = document.querySelector(
+        'input[type="file"]'
+      ) as HTMLInputElement;
+
+      const file = fileInput?.files?.[0];
+
+      if (!file) {
+        setDataset(data);
+        return;
+      }
+
+      formData.append("file", file);
+
+      const response = await fetch(
+        "http://localhost:8000/datasets/analyze",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Analysis request failed");
+      }
+
+      const analysisData = await response.json();
+
+      setDataset({
+        ...data,
+        analysis: analysisData.analysis,
+      });
+    } catch (error) {
+      console.error("ANALYSIS ERROR:", error);
+
+      setDataset(data);
+    }
   }}
 />
                   {datasetResult && (
