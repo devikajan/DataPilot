@@ -8,6 +8,8 @@ import {
   Database,
   AlertTriangle,
   CheckCircle2,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 
 type Tab = "Overview" | "Profile" | "Preview";
@@ -142,26 +144,45 @@ export default function DatasetDetailsPage() {
         </Link>
 
         {/* Header */}
-        <div className="mt-8 flex items-center gap-4">
+<div className="mt-8 flex items-center justify-between gap-6">
+  {/* Dataset identity */}
+  <div className="flex min-w-0 items-center gap-4">
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10">
+      <Database
+        size={22}
+        className="text-blue-300"
+      />
+    </div>
 
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10">
-            <Database
-              size={22}
-              className="text-blue-300"
-            />
-          </div>
+    <div className="min-w-0">
+      <h1 className="truncate text-3xl font-bold">
+        {dataset.filename}
+      </h1>
 
-          <div>
-            <h1 className="text-3xl font-bold">
-              {dataset.filename}
-            </h1>
+      <p className="mt-1 text-sm text-white/40">
+        Dataset details and analysis
+      </p>
+    </div>
+  </div>
 
-            <p className="mt-1 text-sm text-white/40">
-              Dataset details and analysis
-            </p>
-          </div>
+  {/* Open Insights */}
+  <Link
+    href={`/insights?dataset=${encodeURIComponent(filename)}`}
+    className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl border border-blue-400/20 bg-blue-500/10 px-5 py-3 text-sm font-medium text-blue-200 shadow-lg shadow-blue-500/5 transition-all duration-200 hover:border-blue-400/40 hover:bg-blue-500/20 hover:text-white hover:shadow-blue-500/10"
+  >
+    <BarChart3
+      size={18}
+      className="text-blue-300 transition-transform duration-200 group-hover:scale-110"
+    />
 
-        </div>
+    <span>Open Insights</span>
+
+    <ArrowRight
+      size={16}
+      className="text-blue-300/60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-200"
+    />
+  </Link>
+</div>
 
         {/* Tabs */}
         <div className="mt-10 flex gap-6 border-b border-white/10">
