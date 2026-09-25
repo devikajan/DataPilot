@@ -23,6 +23,7 @@ export default function InsightsPage() {
   const [selectedMetric, setSelectedMetric] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [selectedChartType, setSelectedChartType] = useState("all");
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -604,51 +605,100 @@ setChartData(rowsData.data ?? []);
         </p>
       </div>
 
+      {/* Chart Type Filter */}
+      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+    Chart Type
+  </label>
+
+  <select
+    value={selectedChartType}
+    onChange={(event) =>
+      setSelectedChartType(event.target.value)
+    }
+    className="w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-64"
+  >
+          <option value="all">All Charts</option>
+          <option value="line">Line</option>
+          <option value="bar">Bar</option>
+          <option value="scatter">Scatter</option>
+          <option value="histogram">Histogram</option>
+        </select>
+      </div>
+
+      {/* Recommended Charts */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
         {chartRecommendations.data
+          .filter(
+            (recommendation: any) =>
+              selectedChartType === "all" ||
+              recommendation.chart_type === selectedChartType
+          )
           .slice(0, 8)
-          .map((recommendation: any, index: number) => {
+          .map(
+            (
+              recommendation: any,
+              index: number
+            ) => {
+              return (
+                <div
+                  key={`${recommendation.chart_type}-${recommendation.x}-${recommendation.y}-${index}`}
+                  className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+                >
 
-            return (
-              <div
-                key={`${recommendation.chart_type}-${recommendation.x}-${recommendation.y}-${index}`}
-                className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
-              >
+                  {/* Chart Header */}
+                  <div className="flex items-start justify-between">
 
-                <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">
+                        {recommendation.y
+                          ? `${recommendation.y} by ${recommendation.x}`
+                          : `${recommendation.x} Distribution`}
+                      </h3>
 
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">
-                      {recommendation.y
-                        ? `${recommendation.y} by ${recommendation.x}`
-                        : `${recommendation.x} Distribution`}
-                    </h3>
+                      <p className="mt-1 text-xs uppercase tracking-wider text-white/30">
+                        {recommendation.chart_type} chart
+                      </p>
 
-                    <p className="mt-1 text-xs uppercase tracking-wider text-white/30">
-                      {recommendation.chart_type} chart
-                    </p>
-
-                    <p className="mt-2 text-xs leading-5 text-white/35">
-  {recommendation.reason}
-</p>
+                      <p className="mt-2 text-xs leading-5 text-white/35">
+                        {recommendation.reason}
+                      </p>
+                    </div>
 
                   </div>
 
+                  {/* Chart */}
+                  <AutoChart
+                    chartType={recommendation.chart_type}
+                    data={chartData}
+                    x={recommendation.x}
+                    y={recommendation.y}
+                  />
+
                 </div>
-
-                <AutoChart
-                  chartType={recommendation.chart_type}
-                  data={chartData}
-                  x={recommendation.x}
-                  y={recommendation.y}
-                />
-
-              </div>
-            );
-          })}
+              );
+            }
+          )}
 
       </div>
+
+      {/* No Matching Charts */}
+      {chartRecommendations.data.filter(
+        (recommendation: any) =>
+          selectedChartType === "all" ||
+          recommendation.chart_type === selectedChartType
+      ).length === 0 && (
+        <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
+          <p className="text-sm font-medium text-white/50">
+            No charts available
+          </p>
+
+          <p className="mt-2 text-sm text-white/30">
+            No recommendations match the selected chart type.
+          </p>
+        </div>
+      )}
 
     </section>
   )}
