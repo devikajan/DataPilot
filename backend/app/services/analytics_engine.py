@@ -120,6 +120,78 @@ def generate_insights(df: pd.DataFrame) -> dict:
         "data": numeric_summary,
     })
 
+        # ---------------------------------------------------------
+    # Business KPI analysis
+    # ---------------------------------------------------------
+
+    business_kpis = []
+
+    total_keywords = [
+        "revenue",
+        "sales",
+        "order",
+        "orders",
+        "spend",
+        "cost",
+        "expense",
+        "profit",
+        "amount",
+        "quantity",
+        "units",
+        "transactions",
+    ]
+
+    average_keywords = [
+        "customer",
+        "customers",
+        "user",
+        "users",
+        "employee",
+        "employees",
+        "price",
+        "rate",
+        "score",
+        "rating",
+        "age",
+        "temperature",
+    ]
+
+    for column in numeric_columns:
+
+        series = df[column].dropna()
+
+        if len(series) == 0:
+            continue
+
+        column_name = column.lower().replace("_", " ").replace("-", " ")
+
+        # Determine the most appropriate aggregation
+        if any(keyword in column_name for keyword in total_keywords):
+            aggregation = "total"
+            value = series.sum()
+
+        elif any(keyword in column_name for keyword in average_keywords):
+            aggregation = "average"
+            value = series.mean()
+
+        else:
+            aggregation = "average"
+            value = series.mean()
+
+        business_kpis.append({
+            "column": column,
+            "label": column.replace("_", " ").title(),
+            "value": safe_value(value),
+            "aggregation": aggregation,
+            "min": safe_value(series.min()),
+            "max": safe_value(series.max()),
+        })
+
+    insights.append({
+        "type": "business_kpis",
+        "data": business_kpis,
+    })
+
     # ---------------------------------------------------------
     # Categorical summaries
     # ---------------------------------------------------------
@@ -301,6 +373,97 @@ def generate_insights(df: pd.DataFrame) -> dict:
         "datetime_column_count": len(datetime_columns),
         "duplicate_rows": duplicate_rows,
         "missing_value_count": int(df.isna().sum().sum()),
+    })
+
+        # ---------------------------------------------------------
+    # Key findings
+    # ---------------------------------------------------------
+
+    key_findings = []
+
+    # Detect significant changes across time-series data
+    for date_column in datetime_columns:
+
+        dates = pd.to_datetime(
+            df[date_column],
+            errors="coerce"
+        )
+
+        valid_mask = dates.notna()
+
+        if valid_mask.sum() < 2:
+            continue
+
+        time_df = df.loc[valid_mask].copy()
+        time_df["_parsed_date"] = dates.loc[valid_mask]
+
+        time_df = time_df.sort_values("_parsed_date")
+
+        for column in numeric_columns:
+
+            values = time_df[column].dropna()
+
+            if len(values) < 2:
+                continue
+
+            first_value = values.iloc[0]
+            last_value = values.iloc[-1]
+
+            if first_value == 0:
+                continue
+
+            change = last_value - first_value
+            percentage_change = (change / abs(first_value)) * 100
+
+            if percentage_change > 10:
+
+                key_findings.append({
+                    "type": "trend",
+                    "column": column,
+                    "message": (
+                        f"{column} increased by "
+                        f"{abs(percentage_change):.2f}% "
+                        f"over the observed period."
+                    ),
+                    "change_percentage": safe_value(
+                        percentage_change
+                    ),
+                })
+
+            elif percentage_change < -10:
+
+                key_findings.append({
+                    "type": "trend",
+                    "column": column,
+                    "message": (
+                        f"{column} decreased by "
+                        f"{abs(percentage_change):.2f}% "
+                        f"over the observed period."
+                    ),
+                    "change_percentage": safe_value(
+                        percentage_change
+                    ),
+                })
+
+    # Detect columns containing outliers
+    for column, stats in outlier_data.items():
+
+        if stats["outlier_count"] > 0:
+
+            key_findings.append({
+                "type": "outlier",
+                "column": column,
+                "message": (
+                    f"{column} contains "
+                    f"{stats['outlier_count']} potential "
+                    f"outlier(s)."
+                ),
+                "outlier_count": stats["outlier_count"],
+            })
+
+    insights.append({
+        "type": "key_findings",
+        "data": key_findings,
     })
 
         # ---------------------------------------------------------

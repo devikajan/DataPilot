@@ -182,6 +182,14 @@ setChartData(rowsData.data ?? []);
   (insight: any) => insight.type === "outlier_analysis"
 );
 
+const businessKpis = analysisInsights.find(
+  (insight: any) => insight.type === "business_kpis"
+);
+
+const keyFindings = analysisInsights.find(
+  (insight: any) => insight.type === "key_findings"
+);
+
   const numericColumns = profile.column_details.filter(
     (column: any) => column.statistics
   );
@@ -307,6 +315,162 @@ setChartData(rowsData.data ?? []);
           </p>
 
         </section>
+
+        {/* =====================================================
+    KEY BUSINESS METRICS
+====================================================== */}
+
+{businessKpis &&
+  businessKpis.data?.length > 0 && (
+    <section className="mt-6">
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+          Key Metrics
+        </p>
+
+        <h2 className="mt-2 text-lg font-semibold">
+          Business Summary
+        </h2>
+
+        <p className="mt-1 text-sm text-white/40">
+          Key performance indicators automatically identified from your dataset.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+        {businessKpis.data
+          .slice(0, 4)
+          .map((kpi: any) => (
+            <div
+              key={kpi.column}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-white/15 hover:bg-white/[0.04]"
+            >
+
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/35">
+                {kpi.label}
+              </p>
+
+              <p className="mt-3 text-2xl font-bold tracking-tight text-white">
+                {typeof kpi.value === "number"
+                  ? kpi.value.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })
+                  : kpi.value ?? "—"}
+              </p>
+
+              <p className="mt-1 text-xs text-blue-300/70">
+                {kpi.aggregation === "total"
+                  ? "Total"
+                  : "Average"}
+              </p>
+
+              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+
+                <div>
+                  <p className="text-[11px] text-white/30">
+                    Min
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/60">
+                    {typeof kpi.min === "number"
+                      ? kpi.min.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })
+                      : kpi.min ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] text-white/30">
+                    Max
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/60">
+                    {typeof kpi.max === "number"
+                      ? kpi.max.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })
+                      : kpi.max ?? "—"}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+          ))}
+
+      </div>
+
+    </section>
+  )}
+
+  {/* =====================================================
+    KEY FINDINGS
+====================================================== */}
+
+{keyFindings &&
+  keyFindings.data?.length > 0 && (
+    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+          Automated Insights
+        </p>
+
+        <h2 className="mt-2 text-lg font-semibold">
+          Key Findings
+        </h2>
+
+        <p className="mt-1 text-sm text-white/40">
+          Important trends and potential anomalies detected automatically.
+        </p>
+      </div>
+
+      <div className="mt-6 space-y-3">
+
+        {keyFindings.data.map(
+          (finding: any, index: number) => (
+            <div
+              key={`${finding.column}-${finding.type}-${index}`}
+              className="flex items-start gap-4 rounded-xl border border-white/5 bg-white/[0.03] p-4 transition hover:bg-white/[0.05]"
+            >
+
+              <div
+                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  finding.type === "outlier"
+                    ? "bg-amber-400/10 text-amber-300"
+                    : finding.change_percentage < 0
+                      ? "bg-red-400/10 text-red-300"
+                      : "bg-emerald-400/10 text-emerald-300"
+                }`}
+              >
+                {finding.type === "outlier" ? "!" : "↗"}
+              </div>
+
+              <div className="min-w-0">
+
+                <p className="text-sm font-medium text-white">
+                  {finding.column}
+                </p>
+
+                <p className="mt-1 text-sm leading-6 text-white/50">
+                  {finding.message}
+                </p>
+
+              </div>
+
+            </div>
+          )
+        )}
+
+      </div>
+
+    </section>
+  )}
+
+
 
         {/* =====================================================
             AUTOMATIC DATASET INSIGHTS
