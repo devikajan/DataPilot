@@ -21,6 +21,8 @@ export default function InsightsPage() {
   const [error, setError] = useState("");
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedMetric, setSelectedMetric] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -409,12 +411,29 @@ setChartData(rowsData.data ?? []);
           const activeTrend =
             dateData.trends?.[activeMetric] || [];
 
+          const filteredTrend = activeTrend.filter(
+            (item: any) => {
+              const itemDate = item.date;
+
+              if (startDate && itemDate < startDate) {
+                return false;
+              }
+
+              if (endDate && itemDate > endDate) {
+                return false;
+              }
+
+              return true;
+            }
+          );
+
           return (
             <div
               key={dateColumn}
               className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
             >
 
+              {/* Date column information */}
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
                 <div>
@@ -439,46 +458,103 @@ setChartData(rowsData.data ?? []);
 
               </div>
 
-              <div className="mt-6">
+              {/* Controls */}
+              <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end">
 
-                <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
-                  Metric
-                </label>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                    Metric
+                  </label>
 
-                <select
-                  value={activeMetric}
-                  onChange={(event) =>
-                    setSelectedMetric(event.target.value)
-                  }
-                  className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-72"
+                  <select
+                    value={activeMetric}
+                    onChange={(event) =>
+                      setSelectedMetric(event.target.value)
+                    }
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-72"
+                  >
+                    {metrics.map((metric) => (
+                      <option
+                        key={metric}
+                        value={metric}
+                      >
+                        {metric}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                    From
+                  </label>
+
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(event) =>
+                      setStartDate(event.target.value)
+                    }
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                    To
+                  </label>
+
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(event) =>
+                      setEndDate(event.target.value)
+                    }
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60 transition hover:bg-white/[0.08] hover:text-white"
                 >
-                  {metrics.map((metric) => (
-                    <option key={metric} value={metric}>
-                      {metric}
-                    </option>
-                  ))}
-                </select>
+                  Reset
+                </button>
 
               </div>
 
+              {/* Chart */}
               {activeMetric ? (
                 <div className="mt-6">
 
-                  <h4 className="text-sm font-medium text-white/80">
-                    {activeMetric}
-                  </h4>
+                  <div className="mb-2">
+                    <h4 className="text-sm font-medium text-white/80">
+                      {activeMetric}
+                    </h4>
+
+                    <p className="mt-1 text-xs text-white/30">
+                      Showing {filteredTrend.length} of{" "}
+                      {activeTrend.length} data points
+                    </p>
+                  </div>
 
                   <TimeSeriesChart
-                    data={activeTrend}
+                    data={filteredTrend}
                     metric={activeMetric}
                   />
 
                 </div>
               ) : (
                 <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center">
+
                   <p className="text-sm text-white/40">
                     No numeric metrics available for this time series.
                   </p>
+
                 </div>
               )}
 
