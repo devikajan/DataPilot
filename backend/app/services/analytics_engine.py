@@ -467,6 +467,26 @@ def generate_insights(df: pd.DataFrame) -> dict:
     })
 
         # ---------------------------------------------------------
+    # Executive summary
+    # ---------------------------------------------------------
+
+    executive_summary = {
+        "dataset": {
+            "rows": int(df.shape[0]),
+            "columns": int(df.shape[1]),
+            "duplicate_rows": duplicate_rows,
+            "missing_values": int(df.isna().sum().sum()),
+        },
+        "kpis": business_kpis,
+        "findings": key_findings,
+    }
+
+    insights.append({
+        "type": "executive_summary",
+        "data": executive_summary,
+    })
+
+        # ---------------------------------------------------------
     # Chart recommendations
     # ---------------------------------------------------------
 

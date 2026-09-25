@@ -190,6 +190,10 @@ const keyFindings = analysisInsights.find(
   (insight: any) => insight.type === "key_findings"
 );
 
+const executiveSummary = analysisInsights.find(
+  (insight: any) => insight.type === "executive_summary"
+);
+
   const numericColumns = profile.column_details.filter(
     (column: any) => column.statistics
   );
@@ -230,60 +234,138 @@ const keyFindings = analysisInsights.find(
         </div>
 
         {/* =====================================================
-            DATASET METRICS
-        ====================================================== */}
+    EXECUTIVE SUMMARY
+====================================================== */}
 
-        <section className="mt-4 grid gap-4 md:grid-cols-3">
+{executiveSummary?.data && (
+  <section className="mt-6 rounded-2xl border border-blue-400/10 bg-blue-400/[0.03] p-6">
 
-          {/* Rows */}
+    <div>
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+        Executive Summary
+      </p>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-white/15 hover:bg-white/[0.04]">
-            <p className="text-sm text-white/40">
-              Rows
-            </p>
+      <h2 className="mt-2 text-lg font-semibold">
+        Dataset Performance Overview
+      </h2>
 
-            <p className="mt-3 text-4xl font-bold tracking-tight">
-              {profile.rows.toLocaleString()}
-            </p>
+      <p className="mt-1 text-sm text-white/40">
+        A concise summary of the most important information detected in your dataset.
+      </p>
+    </div>
 
-            <p className="mt-2 text-xs text-white/25">
-              Total records
-            </p>
-          </div>
+    {/* Dataset Statistics */}
 
-          {/* Columns */}
+    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-white/15 hover:bg-white/[0.04]">
-            <p className="text-sm text-white/40">
-              Columns
-            </p>
+      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+        <p className="text-xs text-white/35">
+          Records
+        </p>
 
-            <p className="mt-3 text-4xl font-bold tracking-tight">
-              {profile.columns}
-            </p>
+        <p className="mt-2 text-2xl font-bold">
+          {executiveSummary.data.dataset.rows.toLocaleString()}
+        </p>
+      </div>
 
-            <p className="mt-2 text-xs text-white/25">
-              Data attributes
-            </p>
-          </div>
+      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+        <p className="text-xs text-white/35">
+          Columns
+        </p>
 
-          {/* Duplicate Rows */}
+        <p className="mt-2 text-2xl font-bold">
+          {executiveSummary.data.dataset.columns}
+        </p>
+      </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-white/15 hover:bg-white/[0.04]">
-            <p className="text-sm text-white/40">
-              Duplicate Rows
-            </p>
+      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+        <p className="text-xs text-white/35">
+          Missing Values
+        </p>
 
-            <p className="mt-3 text-4xl font-bold tracking-tight">
-              {profile.duplicate_rows}
-            </p>
+        <p className="mt-2 text-2xl font-bold">
+          {executiveSummary.data.dataset.missing_values.toLocaleString()}
+        </p>
+      </div>
 
-            <p className="mt-2 text-xs text-white/25">
-              Data quality check
-            </p>
-          </div>
+      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+        <p className="text-xs text-white/35">
+          Duplicate Rows
+        </p>
 
-        </section>
+        <p className="mt-2 text-2xl font-bold">
+          {executiveSummary.data.dataset.duplicate_rows.toLocaleString()}
+        </p>
+      </div>
+
+    </div>
+
+    {/* Key Findings */}
+
+    {executiveSummary.data.findings?.length > 0 && (
+      <div className="mt-6">
+
+        <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/35">
+          Key Findings
+        </p>
+
+        <div className="mt-3 space-y-2">
+
+          {executiveSummary.data.findings
+  .slice(0, 4)
+  .map((finding: any, index: number) => {
+
+    const isOutlier = finding.type === "outlier";
+    const isNegative =
+      finding.type === "trend" &&
+      finding.change_percentage < 0;
+
+    const icon = isOutlier
+      ? "!"
+      : isNegative
+        ? "↘"
+        : "↗";
+
+    const iconClass = isOutlier
+      ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
+      : isNegative
+        ? "bg-red-400/10 text-red-300 border-red-400/20"
+        : "bg-emerald-400/10 text-emerald-300 border-emerald-400/20";
+
+    return (
+      <div
+        key={`${finding.column}-${index}`}
+        className="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 transition hover:bg-white/[0.05]"
+      >
+
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold ${iconClass}`}
+        >
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white/80">
+            {finding.column}
+          </p>
+
+          <p className="mt-0.5 text-sm text-white/45">
+            {finding.message}
+          </p>
+        </div>
+
+      </div>
+    );
+  })}
+
+        </div>
+
+      </div>
+    )}
+
+  </section>
+)}
+
 
         {/* =====================================================
             DATASET SUMMARY
@@ -1349,98 +1431,7 @@ const keyFindings = analysisInsights.find(
 
         </section>
 
-        {/* =====================================================
-            NUMERIC STATISTICS
-        ====================================================== */}
-
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-
-          <div>
-
-            <h2 className="text-lg font-semibold">
-              Numeric Statistics
-            </h2>
-
-            <p className="mt-1 text-sm text-white/40">
-              Summary statistics for numeric columns.
-            </p>
-
-          </div>
-
-          <div className="mt-6 overflow-x-auto">
-
-            <table className="w-full min-w-[700px] text-left">
-
-              <thead>
-
-                <tr className="border-b border-white/10">
-
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/40">
-                    Column
-                  </th>
-
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/40">
-                    Min
-                  </th>
-
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/40">
-                    Max
-                  </th>
-
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/40">
-                    Mean
-                  </th>
-
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/40">
-                    Median
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {numericColumns.map(
-                  (column: any) => (
-
-                    <tr
-                      key={column.name}
-                      className="border-b border-white/5 transition hover:bg-white/[0.02]"
-                    >
-
-                      <td className="px-4 py-4 text-sm font-medium text-white">
-                        {column.name}
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-white/60">
-                        {column.statistics.min}
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-white/60">
-                        {column.statistics.max}
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-white/60">
-                        {column.statistics.mean}
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-white/60">
-                        {column.statistics.median}
-                      </td>
-
-                    </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </section>
+        
 
       </div>
     </main>

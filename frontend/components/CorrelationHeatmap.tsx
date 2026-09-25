@@ -37,57 +37,136 @@ export default function CorrelationHeatmap({
             x: columns,
             y: columns,
             type: "heatmap",
+
+            /*
+             * DataPilot dark UI correlation scale:
+             *
+             * Strong negative → blue
+             * Neutral         → dark navy
+             * Strong positive → purple
+             */
             colorscale: [
-              [0, "#fee2e2"],
-              [0.25, "#fca5a5"],
-              [0.5, "#ef4444"],
-              [0.75, "#dc2626"],
-              [1, "#991b1b"],
+              [0, "#1d4ed8"],
+              [0.2, "#2563eb"],
+              [0.4, "#1e3a8a"],
+              [0.5, "#0f172a"],
+              [0.6, "#312e81"],
+              [0.8, "#6366f1"],
+              [1, "#8b5cf6"],
             ],
+
             zmin: -1,
             zmax: 1,
+
             hovertemplate:
-              "%{y} × %{x}<br>Correlation: %{z:.2f}<extra></extra>",
+              "%{y} × %{x}<br>" +
+              "Correlation: %{z:.2f}" +
+              "<extra></extra>",
+
             colorbar: {
               title: {
                 text: "Correlation",
                 font: {
                   color: "#ffffff",
+                  size: 12,
                 },
               },
+
               tickfont: {
-                color: "#ffffff",
+                color: "rgba(255,255,255,0.65)",
+                size: 11,
               },
+
+              tickvals: [-1, -0.5, 0, 0.5, 1],
+
+              ticktext: [
+                "-1.0",
+                "-0.5",
+                "0",
+                "0.5",
+                "1.0",
+              ],
+
+              thickness: 12,
+
+              len: 0.8,
+
+              outlinecolor: "rgba(255,255,255,0.08)",
+              outlinewidth: 1,
             },
+
+            xgap: 2,
+            ygap: 2,
           },
         ]}
         layout={{
           autosize: true,
-          height: Math.max(450, columns.length * 35),
+
+          height: Math.max(
+            450,
+            columns.length * 35
+          ),
+
           margin: {
             l: 140,
-            r: 40,
+            r: 55,
             t: 20,
             b: 120,
           },
+
           paper_bgcolor: "rgba(0,0,0,0)",
           plot_bgcolor: "rgba(0,0,0,0)",
+
           font: {
             color: "#ffffff",
+            family: "Inter, system-ui, sans-serif",
           },
+
           xaxis: {
             tickangle: -45,
-            gridcolor: "rgba(255,255,255,0.05)",
+
+            tickfont: {
+              color: "rgba(255,255,255,0.65)",
+              size: 11,
+            },
+
+            gridcolor: "rgba(255,255,255,0.04)",
+
+            zeroline: false,
+
+            showline: false,
           },
+
           yaxis: {
             autorange: "reversed",
-            gridcolor: "rgba(255,255,255,0.05)",
+
+            tickfont: {
+              color: "rgba(255,255,255,0.65)",
+              size: 11,
+            },
+
+            gridcolor: "rgba(255,255,255,0.04)",
+
+            zeroline: false,
+
+            showline: false,
+          },
+
+          hoverlabel: {
+            bgcolor: "#0d1220",
+            bordercolor: "rgba(99,102,241,0.5)",
+            font: {
+              color: "#ffffff",
+              size: 12,
+            },
           },
         }}
+
         config={{
           responsive: true,
           displayModeBar: false,
         }}
+
         style={{
           width: "100%",
         }}
