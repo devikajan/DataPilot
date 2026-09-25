@@ -20,6 +20,7 @@ export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [chartData, setChartData] = useState<any[]>([]);
+  const [selectedMetric, setSelectedMetric] = useState("");
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -378,97 +379,132 @@ setChartData(rowsData.data ?? []);
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
-              Trend Analysis
-            </p>
+  <div>
+    <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+      Trend Analysis
+    </p>
 
-            <h2 className="mt-2 text-lg font-semibold">
-              Time Analysis
-            </h2>
+    <h2 className="mt-2 text-lg font-semibold">
+      Time Analysis
+    </h2>
 
-            <p className="mt-1 text-sm text-white/40">
-              Trends automatically detected across date and numeric columns.
-            </p>
-          </div>
+    <p className="mt-1 text-sm text-white/40">
+      Trends automatically detected across date and numeric columns.
+    </p>
+  </div>
 
-          {hasTimeSeriesData ? (
-            <div className="mt-6 space-y-6">
+  {hasTimeSeriesData ? (
+    <div className="mt-6 space-y-6">
 
-              {Object.entries(timeSeriesSummary.data).map(
-                ([dateColumn, dateData]: [string, any]) => (
-                  <div
-                    key={dateColumn}
-                    className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
-                  >
+      {Object.entries(timeSeriesSummary.data).map(
+        ([dateColumn, dateData]: [string, any]) => {
 
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          const metrics = Object.keys(dateData.trends || {});
 
-                      <div>
-                        <h3 className="text-base font-semibold text-white">
-                          {dateColumn}
-                        </h3>
+          const activeMetric =
+            metrics.includes(selectedMetric)
+              ? selectedMetric
+              : metrics[0] || "";
 
-                        <p className="mt-1 text-sm text-white/40">
-                          {dateData.min_date} → {dateData.max_date}
-                        </p>
-                      </div>
+          const activeTrend =
+            dateData.trends?.[activeMetric] || [];
 
-                      <div className="rounded-lg bg-white/[0.04] px-4 py-2">
-                        <p className="text-xs text-white/35">
-                          Unique Dates
-                        </p>
+          return (
+            <div
+              key={dateColumn}
+              className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+            >
 
-                        <p className="mt-1 text-sm font-medium text-white">
-                          {dateData.unique_dates}
-                        </p>
-                      </div>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
-                    </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    {dateColumn}
+                  </h3>
 
-                    <div className="mt-6 space-y-8">
+                  <p className="mt-1 text-sm text-white/40">
+                    {dateData.min_date} → {dateData.max_date}
+                  </p>
+                </div>
 
-                      {Object.entries(dateData.trends || {}).map(
-                        ([metric, trendData]: [string, any]) => (
-                          <div key={metric}>
+                <div className="rounded-lg bg-white/[0.04] px-4 py-2">
+                  <p className="text-xs text-white/35">
+                    Unique Dates
+                  </p>
 
-                            <h4 className="text-sm font-medium text-white/80">
-                              {metric}
-                            </h4>
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {dateData.unique_dates}
+                  </p>
+                </div>
 
-                            <TimeSeriesChart
-                              data={trendData}
-                              metric={metric}
-                            />
+              </div>
 
-                          </div>
-                        )
-                      )}
+              <div className="mt-6">
 
-                    </div>
+                <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                  Metric
+                </label>
 
-                  </div>
-                )
+                <select
+                  value={activeMetric}
+                  onChange={(event) =>
+                    setSelectedMetric(event.target.value)
+                  }
+                  className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-72"
+                >
+                  {metrics.map((metric) => (
+                    <option key={metric} value={metric}>
+                      {metric}
+                    </option>
+                  ))}
+                </select>
+
+              </div>
+
+              {activeMetric ? (
+                <div className="mt-6">
+
+                  <h4 className="text-sm font-medium text-white/80">
+                    {activeMetric}
+                  </h4>
+
+                  <TimeSeriesChart
+                    data={activeTrend}
+                    metric={activeMetric}
+                  />
+
+                </div>
+              ) : (
+                <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center">
+                  <p className="text-sm text-white/40">
+                    No numeric metrics available for this time series.
+                  </p>
+                </div>
               )}
 
             </div>
-          ) : (
-            <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
+          );
+        }
+      )}
 
-              <p className="text-sm font-medium text-white/60">
-                No date or time columns detected
-              </p>
+    </div>
+  ) : (
+    <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
 
-              <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-white/30">
-                Time-series analysis will automatically appear when your
-                dataset contains a date or time column together with numeric
-                values.
-              </p>
+      <p className="text-sm font-medium text-white/60">
+        No date or time columns detected
+      </p>
 
-            </div>
-          )}
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-white/30">
+        Time-series analysis will automatically appear when your
+        dataset contains a date or time column together with numeric
+        values.
+      </p>
 
-        </section>
+    </div>
+  )}
+
+</section>
 
         {/* =====================================================
     AUTOMATIC VISUALIZATIONS
