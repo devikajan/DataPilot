@@ -19,6 +19,7 @@ export default function InsightsPage() {
   const [dataset, setDataset] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -63,6 +64,19 @@ setDataset({
   ...datasetData,
   analysis: analysisData.analysis,
 });
+const rowsResponse = await fetch(
+  `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}/data`
+);
+
+const rowsData = await rowsResponse.json();
+
+if (!rowsResponse.ok) {
+  throw new Error(
+    rowsData.detail || "Could not load dataset rows."
+  );
+}
+
+setChartData(rowsData.data ?? []);
       } catch (err) {
         console.error(err);
 
@@ -483,8 +497,6 @@ setDataset({
         {chartRecommendations.data
           .slice(0, 8)
           .map((recommendation: any, index: number) => {
-
-            const chartData = dataset.preview ?? [];
 
             return (
               <div

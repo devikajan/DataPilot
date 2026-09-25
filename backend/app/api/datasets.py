@@ -34,6 +34,47 @@ async def list_datasets():
         "datasets": datasets
     }
 
+@router.get("/{filename}/data")
+async def get_dataset_data(filename: str):
+    dataset_path = get_dataset_path(filename)
+
+    if not dataset_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset not found"
+        )
+
+    extension = Path(filename).suffix.lower()
+
+    try:
+        if extension == ".csv":
+            df = pd.read_csv(dataset_path)
+
+        elif extension in {".xlsx", ".xls"}:
+            df = pd.read_excel(dataset_path)
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported dataset format"
+            )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read dataset: {exc}"
+        )
+
+    rows = df.where(pd.notnull(df), None).to_dict(
+        orient="records"
+    )
+
+    return {
+        "filename": filename,
+        "row_count": len(rows),
+        "data": rows,
+    }
+
 @router.get("/{filename}")
 async def get_dataset(filename: str):
 
