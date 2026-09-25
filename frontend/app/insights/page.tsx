@@ -628,6 +628,11 @@ setChartData(rowsData.data ?? []);
                     <p className="mt-1 text-xs uppercase tracking-wider text-white/30">
                       {recommendation.chart_type} chart
                     </p>
+
+                    <p className="mt-2 text-xs leading-5 text-white/35">
+  {recommendation.reason}
+</p>
+
                   </div>
 
                 </div>
