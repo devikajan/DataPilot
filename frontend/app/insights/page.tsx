@@ -1,6 +1,6 @@
 "use client";
-
-import { useDataset } from "@/components/DatasetContext";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
 import AutoChart from "@/components/AutoChart";
@@ -13,9 +13,87 @@ import {
 } from "lucide-react";
 
 export default function InsightsPage() {
-  const { dataset } = useDataset();
+  const searchParams = useSearchParams();
+  const filename = searchParams.get("dataset");
 
-  if (!dataset) {
+  const [dataset, setDataset] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadDataset = async () => {
+      if (!filename) {
+        setError("No dataset selected.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError("");
+
+        const datasetResponse = await fetch(
+  `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}`
+);
+
+const datasetData = await datasetResponse.json();
+
+if (!datasetResponse.ok) {
+  throw new Error(
+    datasetData.detail || "Could not load dataset."
+  );
+}
+
+const analysisResponse = await fetch(
+  `http://127.0.0.1:8000/datasets/analyze/${encodeURIComponent(filename)}`,
+  {
+    method: "POST",
+  }
+);
+
+const analysisData = await analysisResponse.json();
+
+if (!analysisResponse.ok) {
+  throw new Error(
+    analysisData.detail || "Could not analyze dataset."
+  );
+}
+
+setDataset({
+  ...datasetData,
+  analysis: analysisData.analysis,
+});
+      } catch (err) {
+        console.error(err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not load dataset."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDataset();
+  }, [filename]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+            <p className="text-sm text-white/40">
+              Loading dataset insights...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !dataset) {
     return (
       <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
         <div className="mx-auto max-w-7xl">
