@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
 import AutoChart from "@/components/AutoChart";
+import ChartToolRenderer from "@/components/ChartToolRenderer";
 
 import {
   Database,
@@ -915,12 +916,10 @@ const executiveSummary = analysisInsights.find(
                   </div>
 
                   {/* Chart */}
-                  <AutoChart
-                    chartType={recommendation.chart_type}
-                    data={chartData}
-                    x={recommendation.x}
-                    y={recommendation.y}
-                  />
+                  <ChartToolRenderer
+  dataset={dataset.filename}
+  recommendation={recommendation}
+/>
 
                 </div>
               );
