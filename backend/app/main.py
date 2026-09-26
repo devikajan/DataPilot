@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.datasets import router as datasets_router
 from app.api.analyst import router as analyst_router
 from app.api.query import router as query_router
+from app.api.charts import router as charts_router
 
 
 app = FastAPI(
@@ -37,3 +38,4 @@ def health_check():
 app.include_router(datasets_router)
 app.include_router(analyst_router)
 app.include_router(query_router)
+app.include_router(charts_router)
