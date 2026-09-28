@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-export default function InsightsPage() {
+function InsightsContent() { 
   const searchParams = useSearchParams();
   const filename = searchParams.get("dataset");
 
@@ -1434,5 +1434,12 @@ const executiveSummary = analysisInsights.find(
 
       </div>
     </main>
+  );
+}
+export default function InsightsPage() {
+  return (
+    <Suspense fallback={<div>Loading insights...</div>}>
+      <InsightsContent />
+    </Suspense>
   );
 }
