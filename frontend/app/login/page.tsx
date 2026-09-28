@@ -34,7 +34,7 @@ export default function LoginPage() {
 
       localStorage.setItem("access_token", data.access_token);
 
-window.location.href = "/";
+window.location.href = "/dashboard";
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Something went wrong."
