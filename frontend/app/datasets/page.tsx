@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
 import {
   Search,
@@ -29,9 +30,16 @@ export default function DatasetsPage() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/datasets/"
-      );
+      const token = localStorage.getItem("access_token");
+
+const response = await fetch(
+  "http://127.0.0.1:8000/datasets/",
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
       if (!response.ok) {
         throw new Error("Failed to fetch datasets");
@@ -49,8 +57,19 @@ export default function DatasetsPage() {
   };
 
   useEffect(() => {
+  async function checkAuthentication() {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      window.location.href = "/login";
+      return;
+    }
+
     fetchDatasets();
-  }, []);
+  }
+
+  checkAuthentication();
+}, []);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -91,13 +110,18 @@ export default function DatasetsPage() {
 
       formData.append("file", file);
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/datasets/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const token = localStorage.getItem("access_token");
+
+const response = await fetch(
+  "http://127.0.0.1:8000/datasets/upload",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  }
+);
 
       const data = await response.json();
 
