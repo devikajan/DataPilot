@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/lib/auth";
 import DatasetUpload from "@/components/DatasetUpload";
 import { motion } from "framer-motion";
 import { useDataset } from "@/components/DatasetContext";
@@ -22,8 +23,8 @@ import {
 const stats = [
   {
     label: "Datasets",
-    value: "12",
-    change: "+3 this month",
+    value: "0",
+    change: "Your uploaded datasets",
     icon: Database,
   },
   {
@@ -74,6 +75,58 @@ const navItems = [
 export default function Home() {
   const { setDataset } = useDataset();
   const [datasetResult, setDatasetResult] = useState<any>(null);
+  const [datasetCount, setDatasetCount] = useState(0);
+  const [user, setUser] = useState<{
+    id: number;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+  async function checkAuthentication() {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setUser(currentUser);
+
+    const token = localStorage.getItem("access_token");
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/datasets/",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setDatasetCount(data.length);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dataset count:", error);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  checkAuthentication();
+}, []);
+
+if (authLoading) {
+  return (
+    <main className="min-h-screen bg-[#070A13] flex items-center justify-center text-white">
+      <p className="text-white/40">Loading DataPilot...</p>
+    </main>
+  );
+}
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#070A13] text-white">
@@ -155,19 +208,33 @@ export default function Home() {
             </button>
 
             <div className="mt-4 border-t border-white/[0.07] pt-4">
-              <div className="flex items-center gap-3 px-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-violet-500 text-sm font-semibold">
-                  D
-                </div>
+  <div className="flex items-center gap-3 px-2">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-violet-500 text-sm font-semibold">
+      {user?.name?.charAt(0).toUpperCase()}
+    </div>
 
-                <div>
-                  <p className="text-sm font-medium">Data Analyst</p>
-                  <p className="text-xs text-white/35">Workspace</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-sm font-medium">
+        {user?.name}
+      </p>
+      <p className="truncate text-xs text-white/35">
+        {user?.email}
+      </p>
+    </div>
+  </div>
+
+  <button
+    onClick={() => {
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
+    }}
+    className="mt-3 flex w-full items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-red-400/20 hover:bg-red-400/10 hover:text-red-300"
+  >
+    Logout
+  </button>
+</div>
+</div>
+</aside>
 
         {/* Main */}
         <section className="flex-1">
@@ -204,12 +271,23 @@ export default function Home() {
                   AI Analytics Workspace
                 </div>
 
-                <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">
-                  Turn data into
-                  <span className="ml-2 bg-gradient-to-r from-blue-400 via-violet-400 to-cyan-300 bg-clip-text text-transparent">
-                    decisions.
-                  </span>
-                </h2>
+                <div>
+  <p className="mb-3 text-sm font-medium text-blue-400">
+    {new Date().getHours() < 12
+      ? "Good morning"
+      : new Date().getHours() < 17
+        ? "Good afternoon"
+        : "Good evening"}
+    , {user?.name}
+  </p>
+
+  <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">
+    Turn data into
+    <span className="ml-2 bg-gradient-to-r from-blue-400 via-violet-400 to-cyan-300 bg-clip-text text-transparent">
+      decisions.
+    </span>
+  </h2>
+</div>
 
                 <p className="mt-4 max-w-xl text-sm leading-6 text-white/45">
                   Upload your datasets, explore patterns, and ask your AI
@@ -604,7 +682,9 @@ export default function Home() {
                     </div>
 
                     <p className="mt-5 text-sm text-white/40">{stat.label}</p>
-                    <p className="mt-1 text-3xl font-semibold">{stat.value}</p>
+                    <p className="mt-1 text-3xl font-semibold">
+  {stat.label === "Datasets" ? datasetCount : stat.value}
+</p>
                   </motion.div>
                 );
               })}
