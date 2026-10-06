@@ -1,6 +1,9 @@
 "use client";
+
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+
 import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 import TimeSeriesChart from "@/components/TimeSeriesChart";
 import AutoChart from "@/components/AutoChart";
@@ -19,6 +22,7 @@ function InsightsContent() {
 
   const [dataset, setDataset] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState("");
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedMetric, setSelectedMetric] = useState("");
@@ -27,20 +31,55 @@ function InsightsContent() {
   const [selectedChartType, setSelectedChartType] = useState("all");
 
   useEffect(() => {
-    const loadDataset = async () => {
-      if (!filename) {
-        setError("No dataset selected.");
-        setLoading(false);
+  async function checkAuthentication() {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setAuthLoading(false);
+  }
+
+  checkAuthentication();
+}, []);
+
+  useEffect(() => {
+  const loadDataset = async () => {
+    if (!filename) {
+      setError("No dataset selected.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        window.location.href = "/login";
         return;
       }
 
-      try {
-        setLoading(true);
-        setError("");
+      const currentUser = await getCurrentUser();
 
-        const datasetResponse = await fetch(
-  `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}`
-);
+      if (!currentUser) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const datasetResponse = await fetch(
+        `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    
 
 const datasetData = await datasetResponse.json();
 
@@ -97,6 +136,14 @@ setChartData(rowsData.data ?? []);
 
     loadDataset();
   }, [filename]);
+
+  if (authLoading) {
+  return (
+    <main className="min-h-screen bg-[#070a13] flex items-center justify-center text-white">
+      <p className="text-white/40">Checking authentication...</p>
+    </main>
+  );
+}
 
   if (loading) {
     return (
