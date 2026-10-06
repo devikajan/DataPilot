@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AutoChart from "@/components/AutoChart";
+import { getCurrentUser } from "@/lib/auth";
 
 const API_URL = "http://127.0.0.1:8000";
 
@@ -9,16 +10,40 @@ export default function ChartToolPage() {
   const [chart, setChart] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkAuthentication() {
+      const currentUser = await getCurrentUser();
+
+      if (!currentUser) {
+        window.location.href = "/login";
+        return;
+      }
+
+      setAuthLoading(false);
+    }
+
+    checkAuthentication();
+  }, []);
 
   async function generateChart() {
     setLoading(true);
     setError("");
 
     try {
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch(`${API_URL}/charts/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           dataset: "DataPilot_TimeSeries_Test.csv",
@@ -40,6 +65,22 @@ export default function ChartToolPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-[#050816] text-white">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-400/20 border-t-blue-400" />
+
+            <p className="mt-4 text-sm text-white/40">
+              Checking authentication...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
