@@ -25,19 +25,28 @@ export default function ChartToolRenderer({
       try {
         setLoading(true);
         setError("");
+        setChart(null);
+
+        const token = localStorage.getItem("access_token");
+
+        if (!token) {
+          window.location.href = "/login";
+          return;
+        }
 
         const response = await fetch(
-          "http://127.0.0.1:8000/charts/",
+          "http://127.0.0.1:8000/charts/generate",
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               dataset,
               chart_type: recommendation.chart_type,
-              x_column: recommendation.x,
-              y_column: recommendation.y,
+              x: recommendation.x,
+              y: recommendation.y ?? null,
             }),
           }
         );
@@ -45,14 +54,22 @@ export default function ChartToolRenderer({
         const result = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            result.detail || "Could not generate chart."
-          );
-        }
+  console.error("Chart API error:", {
+    status: response.status,
+    statusText: response.statusText,
+    result,
+  });
+
+  throw new Error(
+    result.detail ||
+      result.message ||
+      `Chart API failed with status ${response.status}`
+  );
+}
 
         setChart(result.chart);
       } catch (err) {
-        console.error(err);
+        console.error("Chart generation error:", err);
 
         setError(
           err instanceof Error
