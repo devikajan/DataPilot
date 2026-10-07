@@ -60,15 +60,18 @@ def ask_analyst(
             default=str,
         )
 
-        answer = ask_agent(
+        agent_result = ask_agent(
             request.question,
             dataset_context,
+            df,
         )
 
         return {
             "question": request.question,
             "dataset": request.dataset,
-            "answer": answer,
+            "answer": agent_result["answer"],
+            "tool": agent_result["tool"],
+            "result": agent_result["result"],
         }
 
     except HTTPException:
