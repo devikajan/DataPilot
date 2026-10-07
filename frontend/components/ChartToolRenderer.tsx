@@ -35,7 +35,7 @@ export default function ChartToolRenderer({
         }
 
         const response = await fetch(
-          "http://127.0.0.1:8000/charts/generate",
+          "http://127.0.0.1:8000/charts/",
           {
             method: "POST",
             headers: {
@@ -45,8 +45,8 @@ export default function ChartToolRenderer({
             body: JSON.stringify({
               dataset,
               chart_type: recommendation.chart_type,
-              x: recommendation.x,
-              y: recommendation.y ?? null,
+              x_column: recommendation.x,
+              y_column: recommendation.y ?? null,
             }),
           }
         );
@@ -54,18 +54,12 @@ export default function ChartToolRenderer({
         const result = await response.json();
 
         if (!response.ok) {
-  console.error("Chart API error:", {
-    status: response.status,
-    statusText: response.statusText,
-    result,
-  });
-
-  throw new Error(
-    result.detail ||
-      result.message ||
-      `Chart API failed with status ${response.status}`
-  );
-}
+          throw new Error(
+            result.detail ||
+              result.message ||
+              `Chart API failed with status ${response.status}`
+          );
+        }
 
         setChart(result.chart);
       } catch (err) {

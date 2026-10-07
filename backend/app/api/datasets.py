@@ -268,9 +268,9 @@ async def upload_dataset(
             df = pd.read_excel(BytesIO(contents))
 
         stored_path = save_dataset(
-            file,
-            file.filename,
-        )
+    contents,
+    file.filename,
+)
 
         profile = profile_dataset(df)
 

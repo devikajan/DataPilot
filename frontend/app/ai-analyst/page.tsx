@@ -1,28 +1,550 @@
 "use client";
 
+
+
 import { useEffect, useRef, useState } from "react";
 
+
+
 import { getCurrentUser } from "@/lib/auth";
+
+
 
 import AutoChart from "@/components/AutoChart";
 
 
 
+
+
+
+
 type Message = {
+
+
 
   role: "user" | "assistant";
 
+
+
   content: string;
+
+
 
   tool?: string;
 
+
+
   result?: any;
+
+
 
 };
 
 
 
+
+
+
+
+function renderAIAnswer(content: string) {
+
+  const rawLines = content.split(/\r?\n/);
+
+  const lines = rawLines.map((line) => line.trim()).filter(Boolean);
+
+
+
+  const cleanLine = (line: string) =>
+
+    line.replace(/^[-•*]\s*/, "").replace(/^\d+[.)]\s*/, "").trim();
+
+
+
+  const formatText = (text: string) => {
+
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+
+
+
+    return parts.map((part, index) => {
+
+      if (part.startsWith("**") && part.endsWith("**")) {
+
+        return (
+
+          <strong key={index} className="font-semibold text-white">
+
+            {part.slice(2, -2)}
+
+          </strong>
+
+        );
+
+      }
+
+
+
+      return <span key={index}>{part}</span>;
+
+    });
+
+  };
+
+
+
+  const isTableSeparator = (line: string) => {
+
+    const cells = line.replace(/^\\|/, "").replace(/\\|$/, "").split("|");
+
+    return (
+
+      cells.length >= 2 &&
+
+      cells.every((cell) => /^\s*:?-{3,}:?\s*$/.test(cell))
+
+    );
+
+  };
+
+
+
+  const isTableRow = (line: string) => {
+
+    const trimmed = line.trim();
+
+    return trimmed.includes("|") && trimmed.split("|").length >= 3;
+
+  };
+
+
+
+  const parseTableRow = (line: string) =>
+
+    line
+
+      .trim()
+
+      .replace(/^\\|/, "")
+
+      .replace(/\\|$/, "")
+
+      .split("|")
+
+      .map((cell) => cell.trim());
+
+
+
+  const renderTable = (tableLines: string[], key: string) => {
+
+    if (tableLines.length < 2) return null;
+
+
+
+    const header = parseTableRow(tableLines[0]);
+
+    const body = tableLines.slice(2).map(parseTableRow);
+
+
+
+    return (
+
+      <div
+
+        key={key}
+
+        className="my-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-lg shadow-black/10"
+
+      >
+
+        <div className="overflow-x-auto">
+
+          <table className="w-full min-w-[620px] border-collapse text-left">
+
+            <thead>
+
+              <tr className="border-b border-white/[0.08] bg-blue-500/[0.06]">
+
+                {header.map((cell, index) => (
+
+                  <th
+
+                    key={`${cell}-${index}`}
+
+                    className={`px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-300 ${
+
+                      index === 0 ? "text-left" : "text-right"
+
+                    }`}
+
+                  >
+
+                    {formatText(cell)}
+
+                  </th>
+
+                ))}
+
+              </tr>
+
+            </thead>
+
+
+
+            <tbody>
+
+              {body.map((row, rowIndex) => (
+
+                <tr
+
+                  key={`row-${rowIndex}`}
+
+                  className="border-b border-white/[0.05] transition last:border-b-0 hover:bg-white/[0.035]"
+
+                >
+
+                  {header.map((_, columnIndex) => {
+
+                    const cell = row[columnIndex] ?? "—";
+
+                    const isPercentage = /%/.test(cell);
+
+
+
+                    return (
+
+                      <td
+
+                        key={`cell-${rowIndex}-${columnIndex}`}
+
+                        className={`px-5 py-3.5 text-sm ${
+
+                          columnIndex === 0
+
+                            ? "font-medium text-slate-200"
+
+                            : isPercentage
+
+                              ? "text-right font-semibold text-emerald-300"
+
+                              : "text-right text-slate-400"
+
+                        }`}
+
+                      >
+
+                        {formatText(cell)}
+
+                      </td>
+
+                    );
+
+                  })}
+
+                </tr>
+
+              ))}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    );
+
+  };
+
+
+
+  const renderAnalysisBlocks = (analysis: string[]) => {
+
+    const blocks: React.ReactNode[] = [];
+
+    let index = 0;
+
+
+
+    while (index < analysis.length) {
+
+      if (
+
+        isTableRow(analysis[index]) &&
+
+        index + 1 < analysis.length &&
+
+        isTableSeparator(analysis[index + 1])
+
+      ) {
+
+        const tableLines = [analysis[index], analysis[index + 1]];
+
+        let cursor = index + 2;
+
+
+
+        while (cursor < analysis.length && isTableRow(analysis[cursor])) {
+
+          tableLines.push(analysis[cursor]);
+
+          cursor += 1;
+
+        }
+
+
+
+        blocks.push(renderTable(tableLines, `table-${index}`));
+
+        index = cursor;
+
+        continue;
+
+      }
+
+
+
+      blocks.push(
+
+        <p
+
+          key={`paragraph-${index}`}
+
+          className="text-sm leading-7 text-slate-400"
+
+        >
+
+          {formatText(analysis[index])}
+
+        </p>
+
+      );
+
+
+
+      index += 1;
+
+    }
+
+
+
+    return blocks;
+
+  };
+
+
+
+  const firstParagraphIndex = lines.findIndex(
+
+    (line) =>
+
+      !line.startsWith("- ") &&
+
+      !line.startsWith("• ") &&
+
+      !line.startsWith("* ") &&
+
+      !/^\d+[.)]\s/.test(line) &&
+
+      !isTableRow(line) &&
+
+      !isTableSeparator(line)
+
+  );
+
+
+
+  const summary =
+
+    firstParagraphIndex >= 0
+
+      ? lines[firstParagraphIndex]
+
+      : lines[0] ?? content;
+
+
+
+  const findingLines = lines.filter(
+
+    (line, index) =>
+
+      index !== firstParagraphIndex &&
+
+      (line.startsWith("- ") ||
+
+        line.startsWith("• ") ||
+
+        line.startsWith("* ") ||
+
+        /^\d+[.)]\s/.test(line))
+
+  );
+
+
+
+  const analysisLines = lines.filter(
+
+    (line, index) =>
+
+      index !== firstParagraphIndex &&
+
+      !line.startsWith("- ") &&
+
+      !line.startsWith("• ") &&
+
+      !line.startsWith("* ") &&
+
+      !/^\d+[.)]\s/.test(line)
+
+  );
+
+
+
+  return (
+
+    <div className="space-y-5">
+
+      <div className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.08] via-indigo-500/[0.04] to-transparent p-5">
+
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-400/10 blur-2xl" />
+
+
+
+        <div className="relative mb-3 flex items-center gap-2">
+
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-blue-400/15 bg-blue-500/10 text-sm text-blue-300">
+
+            ✦
+
+          </div>
+
+
+
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+
+            Executive Summary
+
+          </span>
+
+        </div>
+
+
+
+        <p className="relative text-[15px] leading-7 text-slate-200">
+
+          {formatText(summary)}
+
+        </p>
+
+      </div>
+
+
+
+      {findingLines.length > 0 && (
+
+        <div>
+
+          <div className="mb-3 flex items-center gap-2">
+
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
+
+              Key Findings
+
+            </span>
+
+          </div>
+
+
+
+          <div className="grid gap-3">
+
+            {findingLines.map((line, index) => (
+
+              <div
+
+                key={`${line}-${index}`}
+
+                className="group rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 transition duration-300 hover:border-blue-400/20 hover:bg-blue-500/[0.035]"
+
+              >
+
+                <div className="flex gap-3">
+
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-blue-400/15 bg-blue-500/10 text-[10px] font-semibold text-blue-300">
+
+                    {index + 1}
+
+                  </div>
+
+
+
+                  <p className="text-sm leading-6 text-slate-300">
+
+                    {formatText(cleanLine(line))}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        </div>
+
+      )}
+
+
+
+      {analysisLines.length > 0 && (
+
+        <div>
+
+          <div className="mb-3 flex items-center gap-2">
+
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.7)]" />
+
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+
+              Analysis
+
+            </span>
+
+          </div>
+
+
+
+          <div className="rounded-xl border border-white/[0.06] bg-black/10 p-5">
+
+            <div className="space-y-3">
+
+              {renderAnalysisBlocks(analysisLines)}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+    </div>
+
+  );
+
+}
+
+
+
 export default function AnalystPage() {
+
+
+
+
 
 
 
@@ -34,7 +556,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   const [dataset, setDataset] = useState("");
+
+
+
+
 
 
 
@@ -42,7 +576,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
   const [question, setQuestion] = useState("");
+
+
+
+
 
 
 
@@ -54,11 +596,31 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   const [uploading, setUploading] = useState(false);
 
 
 
+
+
+
+
   const [loading, setLoading] = useState(false);
+
+
+
+
+
+
+
+
 
 
 
@@ -74,11 +636,27 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   const [error, setError] = useState("");
 
 
 
+
+
+
+
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+
+
+
 
 
 
@@ -90,7 +668,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   const thinkingSteps = [
+
+
+
+
 
 
 
@@ -98,7 +688,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
     "Understanding your question...",
+
+
+
+
 
 
 
@@ -106,11 +704,23 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
     "Finding meaningful patterns...",
 
 
 
+
+
+
+
     "Preparing your answer...",
+
+
+
+
 
 
 
@@ -122,7 +732,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   /* =========================================================
+
+
+
+
 
 
 
@@ -130,37 +752,77 @@ export default function AnalystPage() {
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
 
 
 
   useEffect(() => {
 
+
+
     async function checkAuthentication() {
+
+
 
       const currentUser = await getCurrentUser();
 
 
 
+
+
+
+
       if (!currentUser) {
+
+
 
         window.location.href = "/login";
 
+
+
         return;
+
+
 
       }
 
 
 
+
+
+
+
       setAuthLoading(false);
+
+
 
     }
 
 
 
+
+
+
+
     checkAuthentication();
 
+
+
   }, []);
+
+
+
+
+
+
 
 
 
@@ -170,11 +832,27 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
      THINKING ANIMATION
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -183,6 +861,10 @@ export default function AnalystPage() {
 
 
   useEffect(() => {
+
+
+
+
 
 
 
@@ -194,7 +876,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
     const interval = setInterval(() => {
+
+
+
+
 
 
 
@@ -202,7 +896,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
         if (current >= thinkingSteps.length - 1) {
+
+
+
+
 
 
 
@@ -210,7 +912,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
         }
+
+
+
+
+
+
+
+
 
 
 
@@ -222,7 +936,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
       });
+
+
+
+
 
 
 
@@ -234,7 +956,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
     return () => clearInterval(interval);
+
+
+
+
 
 
 
@@ -246,271 +980,119 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   /* =========================================================
-
-
-
-     FILE UPLOAD
-
-
-
-  ========================================================= */
-
-
-
-
-
-
-
-  async function handleFileUpload(
-
-
-
-    event: React.ChangeEvent<HTMLInputElement>
-
-
-
-  ) {
-
-
-
-    const file = event.target.files?.[0];
-
-
-
-
-
-
-
-    if (!file) return;
-
-
-
-
-
-
-
-    setError("");
-
-
-
-    setUploadSuccess(false);
-
-
-
-    setUploadedFile(file);
-
-
-
-    setUploading(true);
-
-
-
-    setMessages([]);
-
-
-
-    setQuestion("");
-
-
-
-
-
-
-
-    try {
-
-
-
-      const formData = new FormData();
-
-
-
-
-
-
-
-      formData.append("file", file);
-
-
-
-
-
-
-
-      const response = await fetch(
-
-
-
-        "http://127.0.0.1:8000/datasets/upload",
-
-
-
-        {
-
-
-
-          method: "POST",
-
-
-
-          headers: {
-
-            Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}`,
-
-          },
-
-
-
-          body: formData,
-
-
-
-        }
-
-
-
-      );
-
-
-
-
-
-
-
-      const result = await response.json();
-
-
-
-
-
-
-
-      if (!response.ok) {
-
-
-
-        throw new Error(
-
-
-
-          result.detail || "Dataset upload failed."
-
-
-
-        );
-
-
-
-      }
-
-
-
-
-
-
-
-      const uploadedFilename =
-
-
-
-        result.filename ||
-
-
-
-        result.dataset ||
-
-
-
-        file.name;
-
-
-
-
-
-
-
-      setDataset(uploadedFilename);
-
-
-
-      setUploadSuccess(true);
-
-
-
-    } catch (err) {
-
-
-
-      console.error(err);
-
-
-
-
-
-
-
-      setUploadedFile(null);
-
-
-
-      setDataset("");
-
-
-
-
-
-
-
-      setError(
-
-
-
-        err instanceof Error
-
-
-
-          ? err.message
-
-
-
-          : "Could not upload the dataset."
-
-
-
-      );
-
-
-
-    } finally {
-
-
-
-      setUploading(false);
-
-
-
-    }
-
-
-
+   FILE UPLOAD
+========================================================= */
+
+async function handleFileUpload(
+  event: React.ChangeEvent<HTMLInputElement>
+) {
+  const file = event.target.files?.[0];
+
+  if (!file) {
+    return;
   }
 
+  setError("");
+  setUploadSuccess(false);
+  setUploadedFile(file);
+  setUploading(true);
+  setMessages([]);
+  setQuestion("");
+
+  try {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+      "http://127.0.0.1:8000/datasets/upload",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+    const result = await response.json();
+
+    console.log("DATASET UPLOAD RESPONSE:", result);
+
+    if (
+      !response.ok &&
+      response.status === 409 &&
+      typeof result.detail === "string" &&
+      result.detail.toLowerCase().includes("already exists")
+    ) {
+      console.log(
+        "Dataset already exists. Using existing dataset:",
+        file.name
+      );
+
+      setDataset(file.name);
+      setUploadSuccess(true);
+
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Dataset upload failed."
+      );
+    }
+
+    const uploadedFilename =
+      result.filename ||
+      result.dataset ||
+      file.name;
+
+    setDataset(uploadedFilename);
+    setUploadSuccess(true);
+  } catch (err) {
+    console.error("Dataset upload error:", err);
+
+    setUploadedFile(null);
+    setDataset("");
+    setUploadSuccess(false);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Could not upload the dataset."
+    );
+  } finally {
+    setUploading(false);
+  }
+}
+
+/* =========================================================
+   REMOVE DATASET
+========================================================= */
 
 
 
 
 
 
-  /* =========================================================
 
 
 
-     REMOVE DATASET
-
-
-
-  ========================================================= */
 
 
 
@@ -522,7 +1104,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
     setDataset("");
+
+
+
+
 
 
 
@@ -530,7 +1120,15 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
     setUploadSuccess(false);
+
+
+
+
 
 
 
@@ -538,11 +1136,27 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
     setQuestion("");
 
 
 
+
+
+
+
     setError("");
+
+
+
+
+
+
+
+
 
 
 
@@ -554,11 +1168,23 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
       fileInputRef.current.value = "";
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -570,7 +1196,19 @@ export default function AnalystPage() {
 
 
 
+
+
+
+
+
+
+
+
   /* =========================================================
+
+
+
+
 
 
 
@@ -578,85 +1216,171 @@ export default function AnalystPage() {
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
 
 
 
 async function askAI(customQuestion?: string) {
 
+
+
   const finalQuestion = customQuestion ?? question;
+
+
+
+
 
 
 
   if (!finalQuestion.trim() || !dataset || loading) {
 
+
+
     return;
+
+
 
   }
 
 
 
+
+
+
+
   setError("");
+
+
 
   setQuestion("");
 
+
+
   setLoading(true);
+
+
 
   setThinkingStep(0);
 
 
 
+
+
+
+
   // Add user message
+
+
 
   setMessages((previous) => [
 
+
+
     ...previous,
+
+
 
     {
 
+
+
       role: "user",
+
+
 
       content: finalQuestion,
 
+
+
     },
+
+
 
   ]);
 
 
 
+
+
+
+
   try {
+
+
 
     const response = await fetch(
 
+
+
       "http://127.0.0.1:8000/analyst/ask",
+
+
 
       {
 
+
+
         method: "POST",
+
+
 
         headers: {
 
+
+
           "Content-Type": "application/json",
+
+
 
           Authorization: `Bearer ${
 
+
+
             localStorage.getItem("access_token") ?? ""
+
+
 
           }`,
 
+
+
         },
+
+
 
         body: JSON.stringify({
 
+
+
           dataset,
+
+
 
           question: finalQuestion,
 
+
+
         }),
+
+
 
       }
 
+
+
     );
+
+
+
+
 
 
 
@@ -664,61 +1388,123 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     if (!response.ok) {
+
+
 
       throw new Error(
 
+
+
         result.detail || "AI Analyst request failed."
 
+
+
       );
+
+
 
     }
 
 
 
+
+
+
+
     // Store the complete AI agent response.
+
+
 
     setMessages((previous) => [
 
+
+
       ...previous,
+
+
 
       {
 
+
+
         role: "assistant",
+
+
 
         content: result.answer,
 
+
+
         tool: result.tool,
+
+
 
         result: result.result,
 
+
+
       },
+
+
 
     ]);
 
+
+
   } catch (err) {
+
+
 
     console.error(err);
 
 
 
+
+
+
+
     setError(
+
+
 
       err instanceof Error
 
+
+
         ? err.message
+
+
 
         : "Something went wrong."
 
+
+
     );
+
+
 
   } finally {
 
+
+
     setLoading(false);
+
+
 
   }
 
+
+
 }
+
+
+
+
 
 
 
@@ -726,11 +1512,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
      KEYBOARD
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -742,7 +1544,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     event: React.KeyboardEvent<HTMLTextAreaElement>
+
+
+
+
 
 
 
@@ -750,7 +1560,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     if (event.key === "Enter" && !event.shiftKey) {
+
+
+
+
 
 
 
@@ -758,11 +1576,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
       askAI();
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -774,7 +1604,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
   /* =========================================================
+
+
+
+
 
 
 
@@ -782,7 +1624,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -794,7 +1648,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     setMessages([]);
+
+
+
+
 
 
 
@@ -802,11 +1664,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     setQuestion("");
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -818,11 +1696,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
      COPY ANSWER
 
 
 
-  ========================================================= */
+
+
+
+
+  \========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -834,7 +1728,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     try {
+
+
+
+
 
 
 
@@ -842,7 +1744,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     } catch (err) {
+
+
+
+
 
 
 
@@ -850,11 +1760,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -864,35 +1790,69 @@ async function askAI(customQuestion?: string) {
 
   if (authLoading) {
 
+
+
     return (
+
+
 
       <main className="min-h-screen bg-[#070b14] text-white">
 
+
+
         <div className="flex min-h-screen items-center justify-center">
+
+
 
           <div className="text-center">
 
+
+
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-400/20 border-t-blue-400" />
+
+
 
             <p className="mt-4 text-sm text-slate-500">
 
+
+
               Checking authentication...
+
+
 
             </p>
 
+
+
           </div>
+
+
 
         </div>
 
+
+
       </main>
 
+
+
     );
+
+
 
   }
 
 
 
+
+
+
+
   return (
+
+
+
+
 
 
 
@@ -904,7 +1864,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
       {/* =====================================================
+
+
+
+
 
 
 
@@ -912,7 +1884,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-      ===================================================== */}
+
+
+
+
+      \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -924,7 +1908,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
         <div className="absolute left-1/2 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-blue-600/10 blur-[140px]" />
+
+
+
+
+
+
+
+
 
 
 
@@ -936,7 +1932,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
       </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -952,7 +1960,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
         {/* =====================================================
+
+
+
+
 
 
 
@@ -960,7 +1980,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-        ===================================================== */}
+
+
+
+
+        \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -976,6 +2008,14 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {/* BRAND */}
 
 
@@ -984,7 +2024,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           <div className="flex items-center gap-3">
+
+
+
+
+
+
+
+
 
 
 
@@ -1000,7 +2056,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             <div className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-gradient-to-br from-blue-500/20 to-indigo-500/10">
+
+
+
+
+
+
+
+
 
 
 
@@ -1012,7 +2084,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 width="28"
+
+
+
+
 
 
 
@@ -1020,7 +2100,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 viewBox="0 0 72 72"
+
+
+
+
 
 
 
@@ -1028,7 +2116,15 @@ async function askAI(customQuestion?: string) {
 
 
 
-                xmlns="http://www.w3.org/2000/svg"
+
+
+
+
+                xmlns="http://www\.w3.org/2000/svg"
+
+
+
+
 
 
 
@@ -1036,7 +2132,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 <path
+
+
+
+
 
 
 
@@ -1044,7 +2148,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   stroke="#93C5FD"
+
+
+
+
 
 
 
@@ -1052,7 +2164,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   strokeLinecap="round"
+
+
+
+
 
 
 
@@ -1064,7 +2184,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <circle
+
+
+
+
 
 
 
@@ -1072,7 +2204,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   cy="7"
+
+
+
+
 
 
 
@@ -1080,7 +2220,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fill="#60A5FA"
+
+
+
+
 
 
 
@@ -1092,7 +2240,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <rect
+
+
+
+
 
 
 
@@ -1100,7 +2260,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   y="17"
+
+
+
+
 
 
 
@@ -1108,7 +2276,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   height="35"
+
+
+
+
 
 
 
@@ -1116,7 +2292,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fill="url(#robotGradient)"
+
+
+
+
 
 
 
@@ -1124,7 +2308,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   strokeWidth="1.5"
+
+
+
+
 
 
 
@@ -1136,7 +2328,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <rect
+
+
+
+
 
 
 
@@ -1144,7 +2348,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   y="28"
+
+
+
+
 
 
 
@@ -1152,7 +2364,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   height="13"
+
+
+
+
 
 
 
@@ -1160,7 +2380,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fill="#60A5FA"
+
+
+
+
 
 
 
@@ -1172,7 +2400,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <rect
+
+
+
+
 
 
 
@@ -1180,7 +2420,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   y="28"
+
+
+
+
 
 
 
@@ -1188,7 +2436,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   height="13"
+
+
+
+
 
 
 
@@ -1196,11 +2452,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fill="#60A5FA"
 
 
 
+
+
+
+
                 />
+
+
+
+
+
+
+
+
 
 
 
@@ -1212,7 +2484,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   x="22"
+
+
+
+
 
 
 
@@ -1220,7 +2500,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   width="28"
+
+
+
+
 
 
 
@@ -1228,7 +2516,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   rx="8"
+
+
+
+
 
 
 
@@ -1236,6 +2532,10 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 />
 
 
@@ -1244,7 +2544,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <circle
+
+
+
+
 
 
 
@@ -1252,7 +2564,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   cy="33"
+
+
+
+
 
 
 
@@ -1260,11 +2580,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fill="#93C5FD"
 
 
 
+
+
+
+
                 />
+
+
+
+
+
+
+
+
 
 
 
@@ -1276,7 +2612,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   cx="41"
+
+
+
+
 
 
 
@@ -1284,7 +2628,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   r="2"
+
+
+
+
 
 
 
@@ -1292,7 +2644,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 />
+
+
+
+
+
+
+
+
 
 
 
@@ -1304,7 +2668,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   d="M31 38C33.5 40.5 38.5 40.5 41 38"
+
+
+
+
 
 
 
@@ -1312,7 +2684,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   strokeWidth="1.8"
+
+
+
+
 
 
 
@@ -1320,7 +2700,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 />
+
+
+
+
+
+
+
+
 
 
 
@@ -1332,7 +2724,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   <linearGradient
+
+
+
+
 
 
 
@@ -1340,7 +2740,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     x1="15"
+
+
+
+
 
 
 
@@ -1348,7 +2756,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     x2="57"
+
+
+
+
 
 
 
@@ -1356,7 +2772,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     gradientUnits="userSpaceOnUse"
+
+
+
+
 
 
 
@@ -1364,11 +2788,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     <stop stopColor="#E0F2FE" />
 
 
 
+
+
+
+
                     <stop
+
+
+
+
 
 
 
@@ -1376,11 +2812,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       stopColor="#93C5FD"
 
 
 
+
+
+
+
                     />
+
+
+
+
 
 
 
@@ -1388,7 +2836,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       offset="1"
+
+
+
+
 
 
 
@@ -1396,7 +2852,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     />
+
+
+
+
 
 
 
@@ -1404,11 +2868,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 </defs>
 
 
 
+
+
+
+
               </svg>
+
+
+
+
+
+
+
+
 
 
 
@@ -1424,7 +2904,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             <div>
+
+
+
+
 
 
 
@@ -1436,11 +2928,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <h1 className="text-lg font-semibold">
 
 
 
+
+
+
+
                   DataPilot
+
+
+
+
 
 
 
@@ -1452,7 +2960,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-300">
+
+
+
+
 
 
 
@@ -1460,7 +2980,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -1476,7 +3008,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <p className="text-xs text-slate-500">
+
+
+
+
 
 
 
@@ -1484,7 +3028,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               </p>
+
+
+
+
 
 
 
@@ -1496,7 +3048,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -1512,11 +3080,31 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {dataset && (
 
 
 
+
+
+
+
             <div className="hidden items-center gap-3 sm:flex">
+
+
+
+
+
+
+
+
 
 
 
@@ -1532,7 +3120,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
+
+
+
+
+
+
+
+
 
 
 
@@ -1544,11 +3148,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   {dataset}
 
 
 
+
+
+
+
                 </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -1564,7 +3184,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               {messages.length > 0 && (
+
+
+
+
 
 
 
@@ -1572,7 +3204,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   type="button"
+
+
+
+
 
 
 
@@ -1580,7 +3220,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   className="rounded-xl border border-white/10 px-3 py-2.5 text-xs text-slate-400 transition hover:border-white/20 hover:text-white"
+
+
+
+
 
 
 
@@ -1588,11 +3236,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   Clear
 
 
 
+
+
+
+
                 </button>
+
+
+
+
 
 
 
@@ -1604,7 +3264,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -1612,7 +3284,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 onClick={removeDataset}
+
+
+
+
 
 
 
@@ -1620,11 +3300,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               >
 
 
 
+
+
+
+
                 Remove
+
+
+
+
 
 
 
@@ -1636,11 +3328,31 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             </div>
 
 
 
+
+
+
+
           )}
+
+
+
+
+
+
+
+
 
 
 
@@ -1656,7 +3368,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
         {/* =====================================================
+
+
+
+
 
 
 
@@ -1664,7 +3388,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-        ===================================================== */}
+
+
+
+
+        \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -1680,7 +3416,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {/* ===================================================
+
+
+
+
 
 
 
@@ -1688,7 +3436,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-          =================================================== */}
+
+
+
+
+          \=================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -1700,7 +3460,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="flex flex-1 -translate-y-8 flex-col items-center justify-center py-10 text-center">
+
+
+
+
+
+
+
+
 
 
 
@@ -1712,7 +3484,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 Upload your data.
+
+
+
+
 
 
 
@@ -1720,7 +3500,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 Ask anything.
+
+
+
+
 
 
 
@@ -1732,7 +3520,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500 md:text-base">
+
+
+
+
 
 
 
@@ -1740,7 +3540,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 analyze it, discover patterns, and answer your
+
+
+
+
 
 
 
@@ -1748,7 +3556,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -1764,7 +3584,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -1772,7 +3604,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 onClick={() =>
+
+
+
+
 
 
 
@@ -1780,7 +3620,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 }
+
+
+
+
 
 
 
@@ -1788,7 +3636,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               >
+
+
+
+
+
+
+
+
 
 
 
@@ -1804,7 +3664,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10">
+
+
+
+
+
+
+
+
 
 
 
@@ -1816,7 +3692,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       width="28"
+
+
+
+
 
 
 
@@ -1824,7 +3708,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       viewBox="0 0 24 24"
+
+
+
+
 
 
 
@@ -1832,11 +3724,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     >
 
 
 
+
+
+
+
                       <path
+
+
+
+
 
 
 
@@ -1844,7 +3748,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         stroke="#60A5FA"
+
+
+
+
 
 
 
@@ -1852,7 +3764,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         strokeLinecap="round"
+
+
+
+
 
 
 
@@ -1864,7 +3784,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                       <path
+
+
+
+
 
 
 
@@ -1872,7 +3804,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         stroke="#60A5FA"
+
+
+
+
 
 
 
@@ -1880,7 +3820,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         strokeLinecap="round"
+
+
+
+
 
 
 
@@ -1888,7 +3836,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       />
+
+
+
+
+
+
+
+
 
 
 
@@ -1900,7 +3860,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         d="M5 15V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V15"
+
+
+
+
 
 
 
@@ -1908,7 +3876,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         strokeWidth="1.8"
+
+
+
+
 
 
 
@@ -1916,11 +3892,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       />
 
 
 
+
+
+
+
                     </svg>
+
+
+
+
+
+
+
+
 
 
 
@@ -1936,7 +3928,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <p className="text-base font-medium text-slate-200">
+
+
+
+
 
 
 
@@ -1944,7 +3948,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -1956,11 +3972,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     Drag & drop or click to browse
 
 
 
+
+
+
+
                   </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -1972,11 +4004,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     CSV, XLSX, XLS
 
 
 
+
+
+
+
                   </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -1992,7 +4040,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -2004,7 +4068,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 ref={fileInputRef}
+
+
+
+
 
 
 
@@ -2012,7 +4084,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 accept=".csv,.xlsx,.xls"
+
+
+
+
 
 
 
@@ -2020,7 +4100,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 className="hidden"
+
+
+
+
 
 
 
@@ -2032,7 +4120,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -2044,7 +4144,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {/* ===================================================
+
+
+
+
 
 
 
@@ -2052,7 +4164,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-          =================================================== */}
+
+
+
+
+          \=================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -2064,7 +4188,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="flex flex-1 flex-col items-center justify-center">
+
+
+
+
+
+
+
+
 
 
 
@@ -2080,7 +4216,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <div className="absolute h-10 w-10 animate-ping rounded-full bg-blue-400/20" />
+
+
+
+
+
+
+
+
 
 
 
@@ -2096,7 +4248,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -2108,7 +4276,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 Processing your dataset...
+
+
+
+
 
 
 
@@ -2120,11 +4296,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <p className="mt-2 text-sm text-slate-500">
 
 
 
+
+
+
+
                 Uploading and preparing your data for analysis.
+
+
+
+
 
 
 
@@ -2136,7 +4328,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               {uploadedFile && (
+
+
+
+
 
 
 
@@ -2144,11 +4348,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   {uploadedFile.name}
 
 
 
+
+
+
+
                 </p>
+
+
+
+
 
 
 
@@ -2160,7 +4376,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -2172,7 +4400,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {/* ===================================================
+
+
+
+
 
 
 
@@ -2180,7 +4420,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-          =================================================== */}
+
+
+
+
+          \=================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -2192,11 +4444,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             !uploading &&
 
 
 
+
+
+
+
             messages.length === 0 && (
+
+
+
+
 
 
 
@@ -2208,7 +4472,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 {uploadSuccess && (
+
+
+
+
 
 
 
@@ -2220,7 +4496,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-400">
+
+
+
+
 
 
 
@@ -2228,7 +4516,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -2240,7 +4540,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       Dataset ready for analysis
+
+
+
+
 
 
 
@@ -2252,7 +4560,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -2264,11 +4584,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <h2 className="max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl">
 
 
 
+
+
+
+
                   What would you like to know?
+
+
+
+
 
 
 
@@ -2280,7 +4616,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">
+
+
+
+
 
 
 
@@ -2288,7 +4636,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   <span className="text-slate-300">
+
+
+
+
 
 
 
@@ -2296,7 +4652,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   </span>
+
+
+
+
 
 
 
@@ -2304,7 +4668,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -2320,7 +4696,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <div className="mt-10 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
+
+
+
+
+
+
+
+
 
 
 
@@ -2332,7 +4724,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     "What are the key insights in this dataset?",
+
+
+
+
 
 
 
@@ -2340,7 +4740,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     "What unusual patterns can you find?",
+
+
+
+
 
 
 
@@ -2348,7 +4756,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   ].map((suggestion) => (
+
+
+
+
 
 
 
@@ -2356,7 +4772,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       key={suggestion}
+
+
+
+
 
 
 
@@ -2364,7 +4788,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       onClick={() =>
+
+
+
+
 
 
 
@@ -2372,7 +4804,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       }
+
+
+
+
 
 
 
@@ -2380,7 +4820,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     >
+
+
+
+
+
+
+
+
 
 
 
@@ -2396,7 +4848,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                         <span className="text-xs font-medium text-blue-400">
+
+
+
+
 
 
 
@@ -2404,7 +4868,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -2416,11 +4892,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                           →
 
 
 
+
+
+
+
                         </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -2436,11 +4928,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                       <p className="text-sm text-slate-300">
 
 
 
+
+
+
+
                         {suggestion}
+
+
+
+
 
 
 
@@ -2452,7 +4960,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                     </button>
+
+
+
+
 
 
 
@@ -2464,7 +4984,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -2476,7 +5012,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             )}
+
+
+
+
+
+
+
+
 
 
 
@@ -2488,11 +5036,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               CHAT
 
 
 
-          =================================================== */}
+
+
+
+
+          \=================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -2504,51 +5068,103 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="mx-auto w-full max-w-4xl space-y-6 py-8">
+
+
+
+
 
 
 
 {messages.map((message, index) => (
 
+
+
   <div
+
+
 
     key={`${message.role}-${index}`}
 
+
+
     className={
+
+
 
       message.role === "user"
 
+
+
         ? "flex justify-end"
+
+
 
         : "flex justify-start"
 
+
+
     }
 
+
+
   >
+
+
 
     {message.role === "user" ? (
 
 
 
+
+
+
+
       <div className="max-w-[85%] rounded-2xl rounded-br-md border border-blue-400/20 bg-blue-500/10 px-5 py-4">
+
+
 
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
 
+
+
           You
 
+
+
         </p>
+
+
+
+
 
 
 
         <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">
 
+
+
           {message.content}
+
+
 
         </p>
 
+
+
       </div>
 
+
+
     ) : (
+
+
+
+
 
 
 
@@ -2556,345 +5172,638 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
         {/* Glow */}
+
+
 
         <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
 
 
 
+
+
+
+
         {/* Header */}
 
+
+
         <div className="relative mb-6 flex items-center justify-between">
+
+
 
           <div className="flex items-center gap-3">
 
 
 
+
+
+
+
             {/* Robot avatar */}
+
+
 
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10">
 
+
+
               <svg
+
+
 
                 width="25"
 
+
+
                 height="25"
+
+
 
                 viewBox="0 0 72 72"
 
+
+
                 fill="none"
 
-                xmlns="http://www.w3.org/2000/svg"
+
+
+                xmlns="http://www\.w3.org/2000/svg"
+
+
 
               >
 
+
+
                 <path
+
+
 
                   d="M36 9V16"
 
+
+
                   stroke="#93C5FD"
+
+
 
                   strokeWidth="2.5"
 
+
+
                   strokeLinecap="round"
+
+
 
                 />
 
 
 
+
+
+
+
                 <circle
+
+
 
                   cx="36"
 
+
+
                   cy="7"
+
+
 
                   r="3.5"
 
+
+
                   fill="#60A5FA"
+
+
 
                 />
 
 
 
+
+
+
+
                 <rect
+
+
 
                   x="15"
 
+
+
                   y="17"
+
+
 
                   width="42"
 
+
+
                   height="35"
+
+
 
                   rx="13"
 
+
+
                   fill="#93C5FD"
 
+
+
                 />
+
+
+
+
 
 
 
                 <rect
 
+
+
                   x="22"
+
+
 
                   y="24"
 
+
+
                   width="28"
+
+
 
                   height="21"
 
+
+
                   rx="8"
+
+
 
                   fill="#111827"
 
+
+
                 />
 
 
 
+
+
+
+
                 <circle
+
+
 
                   cx="31"
 
+
+
                   cy="33"
+
+
 
                   r="2"
 
+
+
                   fill="#60A5FA"
 
+
+
                 />
+
+
+
+
 
 
 
                 <circle
 
+
+
                   cx="41"
+
+
 
                   cy="33"
 
+
+
                   r="2"
+
+
 
                   fill="#60A5FA"
 
+
+
                 />
+
+
+
+
 
 
 
                 <path
 
+
+
                   d="M31 38C33.5 40.5 38.5 40.5 41 38"
+
+
 
                   stroke="#60A5FA"
 
+
+
                   strokeWidth="1.8"
+
+
 
                   strokeLinecap="round"
 
+
+
                 />
+
+
 
               </svg>
 
+
+
             </div>
+
+
+
+
 
 
 
             <div>
 
+
+
               <div className="flex items-center gap-2">
+
+
 
                 <p className="text-sm font-semibold text-white">
 
+
+
                   DataPilot AI
+
+
 
                 </p>
 
 
 
+
+
+
+
                 <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-400">
+
+
 
                   Complete
 
+
+
                 </span>
 
+
+
               </div>
+
+
+
+
 
 
 
               <p className="mt-0.5 text-[10px] text-slate-500">
 
+
+
                 Dataset analysis
+
+
 
               </p>
 
+
+
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
           {/* Copy */}
 
+
+
           <button
+
+
 
             type="button"
 
+
+
             onClick={() => copyAnswer(message.content)}
+
+
 
             className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] text-slate-500 transition hover:border-blue-400/20 hover:text-blue-400"
 
+
+
           >
+
+
 
             Copy
 
+
+
           </button>
 
+
+
         </div>
+
+
+
+
 
 
 
         {/* Divider */}
 
+
+
         <div className="relative mb-6 h-px bg-gradient-to-r from-blue-400/20 via-white/10 to-transparent" />
+
+
+
+
 
 
 
         {/* AI Insight */}
 
+
+
         <div className="relative">
 
 
 
-          <div className="mb-3 flex items-center gap-2">
-
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]" />
-
-
-
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
-
-              AI Insight
-
-            </span>
-
-          </div>
-
-
-
-          <div className="rounded-xl border border-white/[0.06] bg-black/10 p-5">
-
-            <p className="whitespace-pre-wrap text-[15px] leading-8 text-slate-200">
-
-              {message.content}
-
-            </p>
-
-          </div>
+          {renderAIAnswer(message.content)}
 
 
 
           {/* =================================================
 
+
+
              GENERATED CHART
 
-          ================================================= */}
+
+
+          \================================================= */}
+
+
 
           {message.tool === "generate_chart" &&
 
+
+
             message.result?.chart_type &&
+
+
 
             message.result?.data &&
 
+
+
             message.result?.x &&
 
+
+
             message.result?.y && (
+
+
 
               <div className="mt-5 overflow-hidden rounded-xl border border-blue-400/10 bg-black/20 p-4">
 
 
 
+
+
+
+
                 <div className="mb-4 flex items-center justify-between">
+
+
 
                   <div>
 
+
+
                     <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+
+
 
                       Generated Visualization
 
+
+
                     </p>
+
+
+
+
 
 
 
                     <p className="mt-1 text-xs text-slate-500">
 
+
+
                       Generated by DataPilot Chart Tool
 
+
+
                     </p>
+
+
 
                   </div>
 
 
 
+
+
+
+
                   <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-medium uppercase tracking-wider text-blue-300">
+
+
 
                     {message.result.chart_type}
 
+
+
                   </span>
+
+
 
                 </div>
 
 
 
+
+
+
+
                 <AutoChart
+
+
 
                   chartType={message.result.chart_type}
 
+
+
                   data={message.result.data}
+
+
 
                   x={message.result.x}
 
+
+
                   y={message.result.y}
+
+
 
                 />
 
+
+
               </div>
+
+
 
             )}
 
+
+
         </div>
+
+
+
+
 
 
 
         {/* Footer */}
 
+
+
         <div className="relative mt-5 flex items-center justify-between">
 
+
+
           <div className="flex items-center gap-2 text-[10px] text-slate-600">
+
+
 
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70" />
 
 
 
+
+
+
+
             Analysis generated from selected dataset
+
+
 
           </div>
 
 
 
+
+
+
+
           <span className="text-[10px] text-slate-700">
+
+
 
             DataPilot
 
+
+
           </span>
+
+
 
         </div>
 
+
+
       </div>
+
+
 
     )}
 
+
+
   </div>
 
+
+
 ))}
+
+
+
+
+
+
+
 
 
 
@@ -2905,11 +5814,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   THINKING
 
 
 
-              ================================================= */}
+
+
+
+
+              \================================================= */}
+
+
+
+
+
+
+
+
 
 
 
@@ -2921,7 +5846,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 <div className="rounded-2xl border border-blue-400/10 bg-blue-500/[0.035] p-5">
+
+
+
+
+
+
+
+
 
 
 
@@ -2937,7 +5874,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                     <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10">
+
+
+
+
+
+
+
+
 
 
 
@@ -2953,6 +5906,14 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                       <div className="relative h-2.5 w-2.5 rounded-full bg-blue-400" />
 
 
@@ -2961,7 +5922,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -2977,7 +5954,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                       <p className="text-xs font-semibold text-slate-200">
+
+
+
+
 
 
 
@@ -2985,7 +5974,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -2997,11 +5998,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         {thinkingSteps[thinkingStep]}
 
 
 
+
+
+
+
                       </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -3017,7 +6034,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3033,7 +6066,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/5">
+
+
+
+
+
+
+
+
 
 
 
@@ -3045,7 +6094,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-700"
+
+
+
+
 
 
 
@@ -3053,7 +6110,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         width: `${
+
+
+
+
 
 
 
@@ -3061,7 +6126,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                             thinkingSteps.length) *
+
+
+
+
 
 
 
@@ -3069,11 +6142,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                         }%`,
 
 
 
+
+
+
+
                       }}
+
+
+
+
 
 
 
@@ -3085,7 +6170,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3101,7 +6202,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <div className="mt-4 flex gap-1.5">
+
+
+
+
+
+
+
+
 
 
 
@@ -3117,7 +6234,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
+
+
+
+
+
+
+
+
 
 
 
@@ -3133,7 +6266,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3145,7 +6294,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               )}
+
+
+
+
+
+
+
+
 
 
 
@@ -3157,7 +6318,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
           )}
+
+
+
+
+
+
+
+
 
 
 
@@ -3169,11 +6342,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               ERROR
 
 
 
-          ===================================================== */}
+
+
+
+
+          \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -3185,7 +6374,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="mx-auto mb-5 w-full max-w-4xl rounded-xl border border-red-400/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+
+
+
+
 
 
 
@@ -3193,7 +6390,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -3205,7 +6410,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
           {/* =====================================================
+
+
+
+
 
 
 
@@ -3213,7 +6430,19 @@ async function askAI(customQuestion?: string) {
 
 
 
-          ===================================================== */}
+
+
+
+
+          \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -3225,7 +6454,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="mx-auto mt-auto w-full max-w-4xl pb-3">
+
+
+
+
+
+
+
+
 
 
 
@@ -3241,7 +6482,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                 <textarea
+
+
+
+
 
 
 
@@ -3249,7 +6502,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   onChange={(e) =>
+
+
+
+
 
 
 
@@ -3257,7 +6518,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   }
+
+
+
+
 
 
 
@@ -3265,7 +6534,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   disabled={loading}
+
+
+
+
 
 
 
@@ -3273,7 +6550,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   rows={2}
+
+
+
+
 
 
 
@@ -3281,7 +6566,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 />
+
+
+
+
+
+
+
+
 
 
 
@@ -3297,11 +6594,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <p className="hidden text-[10px] text-slate-600 sm:block">
 
 
 
+
+
+
+
                     Press Enter to ask · Shift + Enter for a new line
+
+
+
+
 
 
 
@@ -3313,7 +6626,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
                   <button
+
+
+
+
 
 
 
@@ -3321,7 +6646,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     onClick={() => askAI()}
+
+
+
+
 
 
 
@@ -3329,7 +6662,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                       loading ||
+
+
+
+
 
 
 
@@ -3337,7 +6678,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     }
+
+
+
+
 
 
 
@@ -3345,7 +6694,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     aria-label="Ask DataPilot"
+
+
+
+
 
 
 
@@ -3353,7 +6710,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     {loading ? (
+
+
+
+
 
 
 
@@ -3361,7 +6726,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     ) : (
+
+
+
+
 
 
 
@@ -3369,11 +6742,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                     )}
 
 
 
+
+
+
+
                   </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -3389,7 +6778,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3401,11 +6806,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 DataPilot AI can make mistakes. Verify important
 
 
 
+
+
+
+
                 business decisions against the underlying data.
+
+
+
+
 
 
 
@@ -3417,11 +6834,31 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             </div>
 
 
 
+
+
+
+
           )}
+
+
+
+
+
+
+
+
 
 
 
@@ -3433,11 +6870,27 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
               UPLOAD DIFFERENT DATASET
 
 
 
-          ===================================================== */}
+
+
+
+
+          \===================================================== */}
+
+
+
+
+
+
+
+
 
 
 
@@ -3449,7 +6902,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
             <div className="pb-5 text-center">
+
+
+
+
+
+
+
+
 
 
 
@@ -3461,7 +6926,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 type="button"
+
+
+
+
 
 
 
@@ -3469,7 +6942,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                   fileInputRef.current?.click()
+
+
+
+
 
 
 
@@ -3477,7 +6958,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 className="text-xs text-slate-600 transition hover:text-blue-400"
+
+
+
+
 
 
 
@@ -3485,7 +6974,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 Upload a different dataset
+
+
+
+
 
 
 
@@ -3497,7 +6994,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
               <input
+
+
+
+
 
 
 
@@ -3505,7 +7014,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 type="file"
+
+
+
+
 
 
 
@@ -3513,11 +7030,23 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
                 onChange={handleFileUpload}
 
 
 
+
+
+
+
                 className="hidden"
+
+
+
+
 
 
 
@@ -3529,7 +7058,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -3541,7 +7082,19 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
+
+
+
+
         </section>
+
+
+
+
 
 
 
@@ -3549,7 +7102,15 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
     </main>
+
+
+
+
 
 
 
@@ -3557,4 +7118,10 @@ async function askAI(customQuestion?: string) {
 
 
 
+
+
+
+
 }
+
+
