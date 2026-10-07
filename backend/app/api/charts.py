@@ -1,11 +1,17 @@
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
+from app.auth.dependencies import get_current_user
+from app.api.datasets import verify_dataset_ownership
 from app.services.chart_tool import generate_chart_data
 from app.services.dataset_storage import get_dataset_path
 
-router = APIRouter(prefix="/charts", tags=["Chart Tool"])
+
+router = APIRouter(
+    prefix="/charts",
+    tags=["Chart Tool"],
+)
 
 
 class ChartRequest(BaseModel):
@@ -16,14 +22,22 @@ class ChartRequest(BaseModel):
 
 
 @router.post("/")
-def create_chart(request: ChartRequest):
+def create_chart(
+    request: ChartRequest,
+    current_user: dict = Depends(get_current_user),
+):
     try:
+        verify_dataset_ownership(
+            request.dataset,
+            current_user["id"],
+        )
+
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail="Dataset not found"
+                detail="Dataset file not found",
             )
 
         if dataset_path.suffix.lower() == ".csv":
@@ -35,7 +49,7 @@ def create_chart(request: ChartRequest):
         else:
             raise HTTPException(
                 status_code=400,
-                detail="Unsupported dataset format"
+                detail="Unsupported dataset format",
             )
 
         result = generate_chart_data(
@@ -56,11 +70,11 @@ def create_chart(request: ChartRequest):
     except ValueError as error:
         raise HTTPException(
             status_code=400,
-            detail=str(error)
+            detail=str(error),
         )
 
     except Exception as error:
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=str(error),
         )

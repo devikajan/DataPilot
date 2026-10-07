@@ -1,15 +1,20 @@
 import json
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
+from app.auth.dependencies import get_current_user
+from app.api.datasets import verify_dataset_ownership
 from app.services.ai_agent import ask_agent
 from app.services.analytics_engine import generate_insights
 from app.services.dataset_storage import get_dataset_path
 
 
-router = APIRouter(prefix="/analyst", tags=["AI Analyst"])
+router = APIRouter(
+    prefix="/analyst",
+    tags=["AI Analyst"],
+)
 
 
 class AnalystRequest(BaseModel):
@@ -18,20 +23,30 @@ class AnalystRequest(BaseModel):
 
 
 @router.post("/ask")
-def ask_analyst(request: AnalystRequest):
+def ask_analyst(
+    request: AnalystRequest,
+    current_user: dict = Depends(get_current_user),
+):
     try:
+        verify_dataset_ownership(
+            request.dataset,
+            current_user["id"],
+        )
+
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail="Dataset not found",
+                detail="Dataset file not found",
             )
 
         if dataset_path.suffix.lower() == ".csv":
             df = pd.read_csv(dataset_path)
+
         elif dataset_path.suffix.lower() in [".xlsx", ".xls"]:
             df = pd.read_excel(dataset_path)
+
         else:
             raise HTTPException(
                 status_code=400,

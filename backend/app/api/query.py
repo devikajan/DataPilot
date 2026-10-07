@@ -1,12 +1,17 @@
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
+from app.auth.dependencies import get_current_user
+from app.api.datasets import verify_dataset_ownership
 from app.services.dataset_query import query_dataset
 from app.services.dataset_storage import get_dataset_path
 
 
-router = APIRouter(prefix="/query", tags=["Dataset Query"])
+router = APIRouter(
+    prefix="/query",
+    tags=["Dataset Query"],
+)
 
 
 class QueryRequest(BaseModel):
@@ -16,14 +21,22 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/")
-def run_query(request: QueryRequest):
+def run_query(
+    request: QueryRequest,
+    current_user: dict = Depends(get_current_user),
+):
     try:
+        verify_dataset_ownership(
+            request.dataset,
+            current_user["id"],
+        )
+
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail="Dataset not found",
+                detail="Dataset file not found",
             )
 
         if dataset_path.suffix.lower() == ".csv":
