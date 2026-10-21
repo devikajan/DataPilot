@@ -29,3 +29,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 email-validator
 xlrd
+bcrypt==4.0.1
