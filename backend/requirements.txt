@@ -24,3 +24,8 @@ uvicorn==0.39.0
 openai==2.48.0
 pyodbc
 python-dotenv
+psycopg[binary]==3.2.13
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
+xlrd

@@ -1,3 +1,4 @@
+
 import os
 
 from fastapi import Depends, HTTPException
@@ -38,7 +39,9 @@ def get_current_user(
                 detail="Invalid authentication token.",
             )
 
-    except JWTError:
+        user_id = int(user_id)
+
+    except (JWTError, ValueError, TypeError):
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired authentication token.",
@@ -47,14 +50,18 @@ def get_current_user(
     connection = get_connection()
     cursor = connection.cursor()
 
+    is_postgres = connection.__class__.__module__.startswith("psycopg")
+    placeholder = "%s" if is_postgres else "?"
+    table_name = '"Users"' if is_postgres else "Users"
+
     try:
         cursor.execute(
-            """
+            f"""
             SELECT id, name, email
-            FROM Users
-            WHERE id = ?
+            FROM {table_name}
+            WHERE id = {placeholder}
             """,
-            (int(user_id),),
+            (user_id,),
         )
 
         user = cursor.fetchone()

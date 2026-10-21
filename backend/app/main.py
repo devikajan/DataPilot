@@ -1,3 +1,6 @@
+
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,12 +21,22 @@ app = FastAPI(
 )
 
 
+# Add your deployed Vercel URL to FRONTEND_URL in Render.
+# Keep local URLs available for development.
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,28 +51,44 @@ def health_check():
         "version": "0.1.0",
     }
 
+
 @app.get("/db/health")
 def database_health_check():
+    connection = None
+    cursor = None
+
     try:
         connection = get_connection()
         cursor = connection.cursor()
 
-        cursor.execute("SELECT DB_NAME()")
-        database_name = cursor.fetchone()[0]
+        is_postgres = (
+            connection.__class__.__module__.startswith("psycopg")
+        )
 
-        cursor.close()
-        connection.close()
+        if is_postgres:
+            cursor.execute("SELECT current_database()")
+        else:
+            cursor.execute("SELECT DB_NAME()")
+
+        database_name = cursor.fetchone()[0]
 
         return {
             "status": "healthy",
             "database": database_name,
         }
 
-    except Exception as error:
+    except Exception:
         return {
             "status": "unhealthy",
-            "error": str(error),
+            "error": "Database connection or health check failed.",
         }
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+        if connection is not None:
+            connection.close()
 
 
 app.include_router(datasets_router)

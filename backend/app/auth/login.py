@@ -1,9 +1,11 @@
+
+import os
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException
+from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
-from jose import jwt
-from datetime import datetime, timedelta, timezone
-import os
 
 from app.database import get_connection
 
@@ -54,12 +56,16 @@ def login_user(request: LoginRequest):
     connection = get_connection()
     cursor = connection.cursor()
 
+    is_postgres = connection.__class__.__module__.startswith("psycopg")
+    placeholder = "%s" if is_postgres else "?"
+    table_name = '"Users"' if is_postgres else "Users"
+
     try:
         cursor.execute(
-            """
+            f"""
             SELECT id, name, email, password_hash
-            FROM Users
-            WHERE email = ?
+            FROM {table_name}
+            WHERE email = {placeholder}
             """,
             (request.email,),
         )
@@ -74,10 +80,7 @@ def login_user(request: LoginRequest):
 
         user_id, name, email, password_hash = user
 
-        if not pwd_context.verify(
-            request.password,
-            password_hash,
-        ):
+        if not pwd_context.verify(request.password, password_hash):
             raise HTTPException(
                 status_code=401,
                 detail="Invalid email or password.",
@@ -99,10 +102,10 @@ def login_user(request: LoginRequest):
     except HTTPException:
         raise
 
-    except Exception as error:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail="Unable to log in. Please try again.",
         )
 
     finally:

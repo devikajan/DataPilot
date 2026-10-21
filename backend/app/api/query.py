@@ -1,9 +1,11 @@
+
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import Optional
 
 from app.auth.dependencies import get_current_user
-from app.api.datasets import verify_dataset_ownership
+from app.api.datasets import verify_dataset_ownership, read_dataset
 from app.services.dataset_query import query_dataset
 from app.services.dataset_storage import get_dataset_path
 
@@ -17,7 +19,7 @@ router = APIRouter(
 class QueryRequest(BaseModel):
     dataset: str
     operation: str
-    column: str = None
+    column: Optional[str] = None
 
 
 @router.post("/")
@@ -39,17 +41,10 @@ def run_query(
                 detail="Dataset file not found",
             )
 
-        if dataset_path.suffix.lower() == ".csv":
-            df = pd.read_csv(dataset_path)
-
-        elif dataset_path.suffix.lower() in [".xlsx", ".xls"]:
-            df = pd.read_excel(dataset_path)
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported dataset format",
-            )
+        df = read_dataset(
+            dataset_path,
+            request.dataset,
+        )
 
         result = query_dataset(
             df,
@@ -71,8 +66,8 @@ def run_query(
             detail=str(error),
         )
 
-    except Exception as error:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail="Unable to query the dataset.",
         )

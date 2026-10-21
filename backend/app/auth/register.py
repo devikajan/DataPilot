@@ -1,6 +1,7 @@
+
 from fastapi import APIRouter, HTTPException
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_connection
 
@@ -14,9 +15,6 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
 )
-
-
-from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
@@ -33,9 +31,15 @@ def register_user(request: RegisterRequest):
     connection = get_connection()
     cursor = connection.cursor()
 
+    is_postgres = connection.__class__.__module__.startswith("psycopg")
+    placeholder = "%s" if is_postgres else "?"
+
+    # PostgreSQL folds unquoted identifiers to lowercase.
+    table_name = '"Users"' if is_postgres else "Users"
+
     try:
         cursor.execute(
-            "SELECT id FROM Users WHERE email = ?",
+            f"SELECT id FROM {table_name} WHERE email = {placeholder}",
             (request.email,),
         )
 
@@ -50,9 +54,9 @@ def register_user(request: RegisterRequest):
         password_hash = pwd_context.hash(request.password)
 
         cursor.execute(
-            """
-            INSERT INTO Users (name, email, password_hash)
-            VALUES (?, ?, ?)
+            f"""
+            INSERT INTO {table_name} (name, email, password_hash)
+            VALUES ({placeholder}, {placeholder}, {placeholder})
             """,
             (
                 request.name,
@@ -73,11 +77,11 @@ def register_user(request: RegisterRequest):
         connection.rollback()
         raise
 
-    except Exception as error:
+    except Exception:
         connection.rollback()
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail="Unable to create the account. Please try again.",
         )
 
     finally:
