@@ -8,17 +8,44 @@ from app.auth.dependencies import get_current_user
 from app.database import get_connection
 from app.services.dataset_profiler import profile_dataset
 from app.services.analytics_engine import generate_insights
-from app.services.dataset_storage import (
-    save_dataset,
-    get_dataset_path,
-    DATASET_DIR,
-)
+from app.services.dataset_storage import save_dataset, get_dataset_path
 
 
 router = APIRouter(
     prefix="/datasets",
     tags=["Datasets"],
 )
+
+ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
+RESERVOIR_FILENAME = "reservoir summary.csv"
+
+
+def read_dataset(source, filename: str) -> pd.DataFrame:
+    """Read supported datasets and normalize reservoir CSV headers."""
+    extension = Path(filename).suffix.lower()
+
+    if extension == ".csv":
+        if Path(filename).name.lower() == RESERVOIR_FILENAME:
+            df = pd.read_csv(source, skiprows=3)
+
+            df = df.rename(columns={
+                "Unnamed: 0": "Reservoir",
+                "Unnamed: 9": "Basin",
+                "Unnamed: 10": "District",
+                "Unnamed: 11": "Alert",
+            })
+
+            return df
+
+        return pd.read_csv(source)
+
+    if extension in {".xlsx", ".xls"}:
+        return pd.read_excel(source)
+
+    raise HTTPException(
+        status_code=400,
+        detail="Unsupported dataset format",
+    )
 
 
 def verify_dataset_ownership(filename: str, user_id: int):
@@ -76,7 +103,6 @@ async def list_datasets(
         )
 
         rows = cursor.fetchall()
-
         datasets = []
 
         for row in rows:
@@ -96,9 +122,7 @@ async def list_datasets(
                 ),
             })
 
-        return {
-            "datasets": datasets
-        }
+        return {"datasets": datasets}
 
     finally:
         cursor.close()
@@ -110,10 +134,7 @@ async def get_dataset_data(
     filename: str,
     current_user: dict = Depends(get_current_user),
 ):
-    verify_dataset_ownership(
-        filename,
-        current_user["id"],
-    )
+    verify_dataset_ownership(filename, current_user["id"])
 
     dataset_path = get_dataset_path(filename)
 
@@ -123,20 +144,11 @@ async def get_dataset_data(
             detail="Dataset file not found",
         )
 
-    extension = Path(filename).suffix.lower()
-
     try:
-        if extension == ".csv":
-            df = pd.read_csv(dataset_path)
+        df = read_dataset(dataset_path, filename)
 
-        elif extension in {".xlsx", ".xls"}:
-            df = pd.read_excel(dataset_path)
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported dataset format",
-            )
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(
@@ -144,9 +156,9 @@ async def get_dataset_data(
             detail=f"Could not read dataset: {exc}",
         )
 
-    rows = df.where(
+    rows = df.astype(object).where(
         pd.notnull(df),
-        None
+        None,
     ).to_dict(orient="records")
 
     return {
@@ -161,10 +173,7 @@ async def get_dataset(
     filename: str,
     current_user: dict = Depends(get_current_user),
 ):
-    verify_dataset_ownership(
-        filename,
-        current_user["id"],
-    )
+    verify_dataset_ownership(filename, current_user["id"])
 
     dataset_path = get_dataset_path(filename)
 
@@ -174,20 +183,12 @@ async def get_dataset(
             detail="Dataset file not found",
         )
 
-    extension = Path(filename).suffix.lower()
-
     try:
-        if extension == ".csv":
-            df = pd.read_csv(dataset_path)
+        df = read_dataset(dataset_path, filename)
+        profile = profile_dataset(df)
 
-        elif extension in {".xlsx", ".xls"}:
-            df = pd.read_excel(dataset_path)
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported dataset format",
-            )
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(
@@ -195,13 +196,7 @@ async def get_dataset(
             detail=f"Could not read dataset: {exc}",
         )
 
-    profile = profile_dataset(df)
-
-    preview = (
-        df.head(10)
-        .fillna("")
-        .to_dict(orient="records")
-    )
+    preview = df.head(10).fillna("").to_dict(orient="records")
 
     return {
         "filename": filename,
@@ -221,18 +216,36 @@ async def upload_dataset(
             detail="No file provided",
         )
 
-    allowed_extensions = {
-        ".csv",
-        ".xlsx",
-        ".xls",
-    }
+    # Remove any client-supplied directory path.
+    filename = Path(file.filename.replace("\\", "/")).name
+    extension = Path(filename).suffix.lower()
 
-    extension = "." + file.filename.split(".")[-1].lower()
-
-    if extension not in allowed_extensions:
+    if not filename or extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail="Only CSV and Excel files are supported",
+        )
+
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty",
+        )
+
+    # Parse and validate before saving metadata.
+    try:
+        df = read_dataset(BytesIO(contents), filename)
+        profile = profile_dataset(df)
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read uploaded dataset: {exc}",
         )
 
     connection = get_connection()
@@ -246,33 +259,16 @@ async def upload_dataset(
             WHERE filename = ?
               AND user_id = ?
             """,
-            (
-                file.filename,
-                current_user["id"],
-            ),
+            (filename, current_user["id"]),
         )
 
-        existing_dataset = cursor.fetchone()
-
-        if existing_dataset:
+        if cursor.fetchone():
             raise HTTPException(
                 status_code=409,
                 detail="A dataset with this filename already exists.",
             )
 
-        contents = await file.read()
-
-        if extension == ".csv":
-            df = pd.read_csv(BytesIO(contents))
-        else:
-            df = pd.read_excel(BytesIO(contents))
-
-        stored_path = save_dataset(
-    contents,
-    file.filename,
-)
-
-        profile = profile_dataset(df)
+        stored_path = save_dataset(contents, filename)
 
         cursor.execute(
             """
@@ -287,7 +283,7 @@ async def upload_dataset(
             """,
             (
                 current_user["id"],
-                file.filename,
+                filename,
                 extension.lstrip(".").upper(),
                 len(df),
                 len(df.columns),
@@ -304,22 +300,18 @@ async def upload_dataset(
         connection.rollback()
 
         raise HTTPException(
-            status_code=400,
-            detail=f"Could not upload dataset: {exc}",
+            status_code=500,
+            detail=f"Could not save dataset metadata: {exc}",
         )
 
     finally:
         cursor.close()
         connection.close()
 
-    preview = (
-        df.head(10)
-        .fillna("")
-        .to_dict(orient="records")
-    )
+    preview = df.head(10).fillna("").to_dict(orient="records")
 
     return {
-        "filename": file.filename,
+        "filename": filename,
         "message": "Dataset uploaded successfully",
         "stored_path": stored_path,
         "profile": profile,
@@ -332,10 +324,7 @@ async def analyze_dataset(
     filename: str,
     current_user: dict = Depends(get_current_user),
 ):
-    verify_dataset_ownership(
-        filename,
-        current_user["id"],
-    )
+    verify_dataset_ownership(filename, current_user["id"])
 
     dataset_path = get_dataset_path(filename)
 
@@ -345,20 +334,11 @@ async def analyze_dataset(
             detail="Dataset file not found",
         )
 
-    extension = Path(filename).suffix.lower()
-
     try:
-        if extension == ".csv":
-            df = pd.read_csv(dataset_path)
+        df = read_dataset(dataset_path, filename)
 
-        elif extension in {".xlsx", ".xls"}:
-            df = pd.read_excel(dataset_path)
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported dataset format",
-            )
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(

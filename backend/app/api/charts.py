@@ -1,9 +1,10 @@
-import pandas as pd
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import Optional
 
 from app.auth.dependencies import get_current_user
-from app.api.datasets import verify_dataset_ownership
+from app.api.datasets import verify_dataset_ownership, read_dataset
 from app.services.chart_tool import generate_chart_data
 from app.services.dataset_storage import get_dataset_path
 
@@ -18,7 +19,7 @@ class ChartRequest(BaseModel):
     dataset: str
     chart_type: str
     x_column: str
-    y_column: str = None
+    y_column: Optional[str] = None
 
 
 @router.post("/")
@@ -27,6 +28,7 @@ def create_chart(
     current_user: dict = Depends(get_current_user),
 ):
     try:
+        # Verify that this dataset belongs to the logged-in user.
         verify_dataset_ownership(
             request.dataset,
             current_user["id"],
@@ -40,16 +42,32 @@ def create_chart(
                 detail="Dataset file not found",
             )
 
-        if dataset_path.suffix.lower() == ".csv":
-            df = pd.read_csv(dataset_path)
+        # Use the shared reader so special CSV headers are handled.
+        df = read_dataset(
+            dataset_path,
+            request.dataset,
+        )
 
-        elif dataset_path.suffix.lower() in [".xlsx", ".xls"]:
-            df = pd.read_excel(dataset_path)
-
-        else:
+        # Validate requested columns before generating the chart.
+        if request.x_column not in df.columns:
             raise HTTPException(
                 status_code=400,
-                detail="Unsupported dataset format",
+                detail=(
+                    f"Column '{request.x_column}' not found. "
+                    f"Available columns: {df.columns.tolist()}"
+                ),
+            )
+
+        if (
+            request.y_column
+            and request.y_column not in df.columns
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Column '{request.y_column}' not found. "
+                    f"Available columns: {df.columns.tolist()}"
+                ),
             )
 
         result = generate_chart_data(
