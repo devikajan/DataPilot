@@ -6,7 +6,7 @@ export async function getCurrentUser() {
   }
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/auth/me", {
+    const response = await fetch("http://https://datapilot-api-sgvj.onrender.com/auth/me", {
       headers: {
         Authorization: `Bearer ${token}`,
       },

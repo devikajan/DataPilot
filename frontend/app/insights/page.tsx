@@ -146,7 +146,7 @@ function InsightsContent() {
 
       const datasetResponse = await fetch(
 
-        `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}`,
+        `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(filename)}`,
 
         {
 
@@ -180,7 +180,7 @@ if (!datasetResponse.ok) {
 
 const analysisResponse = await fetch(
 
-  `http://127.0.0.1:8000/datasets/analyze/${encodeURIComponent(filename)}`,
+  `http://https://datapilot-api-sgvj.onrender.com/datasets/analyze/${encodeURIComponent(filename)}`,
 
   {
 
@@ -224,7 +224,7 @@ setDataset({
 
 const rowsResponse = await fetch(
 
-  `http://127.0.0.1:8000/datasets/${encodeURIComponent(filename)}/data`,
+  `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(filename)}/data`,
 
   {
 

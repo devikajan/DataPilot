@@ -35,7 +35,7 @@ export default function ChartToolRenderer({
         }
 
         const response = await fetch(
-          "http://127.0.0.1:8000/charts/",
+          "http://https://datapilot-api-sgvj.onrender.com/charts/",
           {
             method: "POST",
             headers: {

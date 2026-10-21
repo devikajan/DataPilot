@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AutoChart from "@/components/AutoChart";
 import { getCurrentUser } from "@/lib/auth";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://https://datapilot-api-sgvj.onrender.com";
 
 export default function ChartToolPage() {
   const [chart, setChart] = useState<any>(null);

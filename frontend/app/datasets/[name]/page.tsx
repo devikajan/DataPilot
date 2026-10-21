@@ -186,7 +186,7 @@ export default function DatasetDetailsPage() {
         }
 
         const response = await fetch(
-          `http://127.0.0.1:8000/datasets/${encodeURIComponent(
+          `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(
             filename
           )}`,
           {
