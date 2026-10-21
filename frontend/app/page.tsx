@@ -357,7 +357,7 @@ if (authLoading) {
       formData.append("file", file);
 
       const response = await fetch(
-        "http://localhost:8000/datasets/analyze",
+        `${process.env.NEXT_PUBLIC_API_URL}/datasets/analyze`,
         {
           method: "POST",
           body: formData,
