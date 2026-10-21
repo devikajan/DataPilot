@@ -568,7 +568,7 @@ async function handleFileUpload(
     formData.append("file", file);
 
     const response = await fetch(
-      "http://127.0.0.1:8000/datasets/upload",
+      `${process.env.NEXT_PUBLIC_API_URL}/datasets/upload`,
       {
         method: "POST",
         headers: {
@@ -684,7 +684,7 @@ async function askAI(customQuestion?: string) {
 
     const response = await fetch(
 
-      "http://127.0.0.1:8000/analyst/ask",
+      `${process.env.NEXT_PUBLIC_API_URL}/analyst/ask`,
 
       {
 
