@@ -186,16 +186,17 @@ export default function DatasetDetailsPage() {
         }
 
         const response = await fetch(
-          `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(
-            filename
-          )}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+  `${(
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://datapilot-api-sgvj.onrender.com"
+  ).replace(/\/+$/, "")}/datasets/${encodeURIComponent(filename)}`,
+  {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
         const data = await response.json();
 

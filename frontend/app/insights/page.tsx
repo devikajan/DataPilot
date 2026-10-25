@@ -6,7 +6,6 @@ import { Suspense, useEffect, useState } from "react";
 
 import { useSearchParams } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
 
 
 
@@ -46,7 +45,6 @@ function InsightsContent() {
 
   const [loading, setLoading] = useState(true);
 
-  const [authLoading, setAuthLoading] = useState(true);
 
   const [error, setError] = useState("");
 
@@ -59,36 +57,6 @@ function InsightsContent() {
   const [endDate, setEndDate] = useState("");
 
   const [selectedChartType, setSelectedChartType] = useState("all");
-
-
-
-  useEffect(() => {
-
-  async function checkAuthentication() {
-
-    const currentUser = await getCurrentUser();
-
-
-
-    if (!currentUser) {
-
-      window.location.href = "/login";
-
-      return;
-
-    }
-
-
-
-    setAuthLoading(false);
-
-  }
-
-
-
-  checkAuthentication();
-
-}, []);
 
 
 
@@ -116,45 +84,14 @@ function InsightsContent() {
 
 
 
-      const token = localStorage.getItem("access_token");
-
-
-
-      if (!token) {
-
-        window.location.href = "/login";
-
-        return;
-
-      }
-
-
-
-      const currentUser = await getCurrentUser();
-
-
-
-      if (!currentUser) {
-
-        window.location.href = "/login";
-
-        return;
-
-      }
-
 
 
       const datasetResponse = await fetch(
 
-        `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(filename)}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/${encodeURIComponent(filename)}`,
 
         {
 
-          headers: {
-
-            Authorization: `Bearer ${token}`,
-
-          },
 
         }
 
@@ -180,17 +117,12 @@ if (!datasetResponse.ok) {
 
 const analysisResponse = await fetch(
 
-  `http://https://datapilot-api-sgvj.onrender.com/datasets/analyze/${encodeURIComponent(filename)}`,
+  `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/analyze/${encodeURIComponent(filename)}`,
 
   {
 
     method: "POST",
 
-    headers: {
-
-      Authorization: `Bearer ${token}`,
-
-    },
 
   }
 
@@ -224,15 +156,10 @@ setDataset({
 
 const rowsResponse = await fetch(
 
-  `http://https://datapilot-api-sgvj.onrender.com/datasets/${encodeURIComponent(filename)}/data`,
+  `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/${encodeURIComponent(filename)}/data`,
 
   {
 
-    headers: {
-
-      Authorization: `Bearer ${token}`,
-
-    },
 
   }
 
@@ -290,33 +217,17 @@ setChartData(rowsData.data ?? []);
 
 
 
-  if (authLoading) {
-
-  return (
-
-    <main className="min-h-screen bg-[#070a13] flex items-center justify-center text-white">
-
-      <p className="text-white/40">Checking authentication...</p>
-
-    </main>
-
-  );
-
-}
-
-
-
   if (loading) {
 
     return (
 
-      <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
+      <main className="insights-theme min-h-screen bg-[#E7DCCE] px-6 py-10 text-[#291C0E] md:px-10">
 
         <div className="mx-auto max-w-7xl">
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+          <div className="rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-8 text-center">
 
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-[#6E473B]">
 
               Loading dataset insights...
 
@@ -338,15 +249,15 @@ setChartData(rowsData.data ?? []);
 
     return (
 
-      <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
+      <main className="insights-theme min-h-screen bg-[#E7DCCE] px-6 py-10 text-[#291C0E] md:px-10">
 
         <div className="mx-auto max-w-7xl">
 
           <div className="flex items-center gap-3">
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#6E473B]/20 bg-[#6E473B]/10">
 
-              <BarChart3 size={21} className="text-blue-300" />
+              <BarChart3 size={21} className="text-[#6E473B]" />
 
             </div>
 
@@ -362,7 +273,7 @@ setChartData(rowsData.data ?? []);
 
 
 
-              <p className="mt-1 text-sm text-white/40">
+              <p className="mt-1 text-sm text-[#6E473B]">
 
                 Discover insights from your datasets.
 
@@ -374,9 +285,9 @@ setChartData(rowsData.data ?? []);
 
 
 
-          <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+          <div className="mt-10 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-8">
 
-            <Database size={28} className="text-blue-400" />
+            <Database size={28} className="text-[#6E473B]" />
 
 
 
@@ -388,7 +299,7 @@ setChartData(rowsData.data ?? []);
 
 
 
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-[#6E473B]">
 
               Upload a dataset from the Overview page to generate insights.
 
@@ -526,7 +437,7 @@ const executiveSummary = analysisInsights.find(
 
   return (
 
-    <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
+    <main className="insights-theme min-h-screen bg-[#E7DCCE] px-6 py-10 text-[#291C0E] md:px-10">
 
       <div className="mx-auto max-w-7xl">
 
@@ -542,13 +453,13 @@ const executiveSummary = analysisInsights.find(
 
         <div className="flex items-center gap-3">
 
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#6E473B]/20 bg-[#6E473B]/10">
 
             <BarChart3
 
               size={21}
 
-              className="text-blue-300"
+              className="text-[#6E473B]"
 
             />
 
@@ -566,7 +477,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-            <p className="mt-1 text-sm text-white/40">
+            <p className="mt-1 text-sm text-[#6E473B]">
 
               Automated analysis of {dataset.filename}
 
@@ -588,13 +499,13 @@ const executiveSummary = analysisInsights.find(
 
 {executiveSummary?.data && (
 
-  <section className="mt-6 rounded-2xl border border-blue-400/10 bg-blue-400/[0.03] p-6">
+  <section className="mt-6 rounded-2xl border border-[#6E473B]/10 bg-[#6E473B]/[0.03] p-6">
 
 
 
     <div>
 
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
         Executive Summary
 
@@ -610,7 +521,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <p className="mt-1 text-sm text-white/40">
+      <p className="mt-1 text-sm text-[#6E473B]">
 
         A concise summary of the most important information detected in your dataset.
 
@@ -628,9 +539,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+      <div className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-4">
 
-        <p className="text-xs text-white/35">
+        <p className="text-xs text-[#6E473B]">
 
           Records
 
@@ -648,9 +559,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+      <div className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-4">
 
-        <p className="text-xs text-white/35">
+        <p className="text-xs text-[#6E473B]">
 
           Columns
 
@@ -668,9 +579,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+      <div className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-4">
 
-        <p className="text-xs text-white/35">
+        <p className="text-xs text-[#6E473B]">
 
           Missing Values
 
@@ -688,9 +599,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4">
+      <div className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-4">
 
-        <p className="text-xs text-white/35">
+        <p className="text-xs text-[#6E473B]">
 
           Duplicate Rows
 
@@ -722,7 +633,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/35">
+        <p className="text-xs font-medium uppercase tracking-[0.15em] text-[#6E473B]">
 
           Key Findings
 
@@ -766,13 +677,13 @@ const executiveSummary = analysisInsights.find(
 
     const iconClass = isOutlier
 
-      ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
+      ? "bg-[#6E473B]/10 text-[#6E473B] border-[#6E473B]/20"
 
       : isNegative
 
-        ? "bg-red-400/10 text-red-300 border-red-400/20"
+        ? "bg-[#6E473B]/10 text-[#6E473B] border-[#6E473B]/20"
 
-        : "bg-emerald-400/10 text-emerald-300 border-emerald-400/20";
+        : "bg-[#6E473B]/10 text-[#6E473B] border-[#6E473B]/20";
 
 
 
@@ -782,7 +693,7 @@ const executiveSummary = analysisInsights.find(
 
         key={`${finding.column}-${index}`}
 
-        className="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 transition hover:bg-white/[0.05]"
+        className="flex items-center gap-4 rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] px-4 py-3 transition hover:bg-[#CDBBA9]/40"
 
       >
 
@@ -802,7 +713,7 @@ const executiveSummary = analysisInsights.find(
 
         <div className="min-w-0">
 
-          <p className="text-sm font-medium text-white/80">
+          <p className="text-sm font-medium text-[#291C0E]">
 
             {finding.column}
 
@@ -810,7 +721,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          <p className="mt-0.5 text-sm text-white/45">
+          <p className="mt-0.5 text-sm text-[#6E473B]">
 
             {finding.message}
 
@@ -854,7 +765,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
@@ -864,7 +775,7 @@ const executiveSummary = analysisInsights.find(
 
               size={20}
 
-              className="text-blue-400"
+              className="text-[#6E473B]"
 
             />
 
@@ -880,11 +791,11 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          <p className="mt-4 text-sm leading-6 text-white/60">
+          <p className="mt-4 text-sm leading-6 text-[#6E473B]">
 
             {dataset.filename} contains{" "}
 
-            <span className="font-medium text-white">
+            <span className="font-medium text-[#291C0E]">
 
               {profile.rows.toLocaleString()}
 
@@ -892,7 +803,7 @@ const executiveSummary = analysisInsights.find(
 
             rows across{" "}
 
-            <span className="font-medium text-white">
+            <span className="font-medium text-[#291C0E]">
 
               {profile.columns}
 
@@ -926,7 +837,7 @@ const executiveSummary = analysisInsights.find(
 
       <div>
 
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
           Key Metrics
 
@@ -942,7 +853,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <p className="mt-1 text-sm text-white/40">
+        <p className="mt-1 text-sm text-[#6E473B]">
 
           Key performance indicators automatically identified from your dataset.
 
@@ -966,13 +877,13 @@ const executiveSummary = analysisInsights.find(
 
               key={kpi.column}
 
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-white/15 hover:bg-white/[0.04]"
+              className="rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-5 transition hover:border-white/15 hover:bg-[#CDBBA9]/35"
 
             >
 
 
 
-              <p className="text-xs font-medium uppercase tracking-[0.12em] text-white/35">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#6E473B]">
 
                 {kpi.label}
 
@@ -980,7 +891,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <p className="mt-3 text-2xl font-bold tracking-tight text-white">
+              <p className="mt-3 text-2xl font-bold tracking-tight text-[#291C0E]">
 
                 {typeof kpi.value === "number"
 
@@ -996,7 +907,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <p className="mt-1 text-xs text-blue-300/70">
+              <p className="mt-1 text-xs text-[#6E473B]/70">
 
                 {kpi.aggregation === "total"
 
@@ -1008,13 +919,13 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+              <div className="mt-4 flex items-center justify-between border-t border-[#A99A8C]/35 pt-3">
 
 
 
                 <div>
 
-                  <p className="text-[11px] text-white/30">
+                  <p className="text-[11px] text-[#6E473B]">
 
                     Min
 
@@ -1022,7 +933,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-xs text-white/60">
+                  <p className="mt-1 text-xs text-[#6E473B]">
 
                     {typeof kpi.min === "number"
 
@@ -1042,7 +953,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <p className="text-[11px] text-white/30">
+                  <p className="text-[11px] text-[#6E473B]">
 
                     Max
 
@@ -1050,7 +961,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-xs text-white/60">
+                  <p className="mt-1 text-xs text-[#6E473B]">
 
                     {typeof kpi.max === "number"
 
@@ -1100,13 +1011,13 @@ const executiveSummary = analysisInsights.find(
 
   keyFindings.data?.length > 0 && (
 
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
       <div>
 
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
           Automated Insights
 
@@ -1122,7 +1033,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <p className="mt-1 text-sm text-white/40">
+        <p className="mt-1 text-sm text-[#6E473B]">
 
           Important trends and potential anomalies detected automatically.
 
@@ -1144,7 +1055,7 @@ const executiveSummary = analysisInsights.find(
 
               key={`${finding.column}-${finding.type}-${index}`}
 
-              className="flex items-start gap-4 rounded-xl border border-white/5 bg-white/[0.03] p-4 transition hover:bg-white/[0.05]"
+              className="flex items-start gap-4 rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-4 transition hover:bg-[#CDBBA9]/40"
 
             >
 
@@ -1156,13 +1067,13 @@ const executiveSummary = analysisInsights.find(
 
                   finding.type === "outlier"
 
-                    ? "bg-amber-400/10 text-amber-300"
+                    ? "bg-[#6E473B]/10 text-[#6E473B]"
 
                     : finding.change_percentage < 0
 
-                      ? "bg-red-400/10 text-red-300"
+                      ? "bg-[#6E473B]/10 text-[#6E473B]"
 
-                      : "bg-emerald-400/10 text-emerald-300"
+                      : "bg-[#6E473B]/10 text-[#6E473B]"
 
                 }`}
 
@@ -1178,7 +1089,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-[#291C0E]">
 
                   {finding.column}
 
@@ -1186,7 +1097,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <p className="mt-1 text-sm leading-6 text-white/50">
+                <p className="mt-1 text-sm leading-6 text-[#6E473B]">
 
                   {finding.message}
 
@@ -1230,13 +1141,13 @@ const executiveSummary = analysisInsights.find(
 
         {datasetOverview && (
 
-          <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
             <div>
 
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
                 Automated Analysis
 
@@ -1252,7 +1163,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <p className="mt-1 text-sm text-white/40">
+              <p className="mt-1 text-sm text-[#6E473B]">
 
                 Automatically detected characteristics of your dataset.
 
@@ -1266,9 +1177,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <div className="rounded-xl border border-white/5 bg-white/[0.04] p-5">
+              <div className="rounded-xl border border-[#A99A8C]/35 bg-[#CDBBA9]/35 p-5">
 
-                <p className="text-sm text-white/40">
+                <p className="text-sm text-[#6E473B]">
 
                   Numeric Columns
 
@@ -1286,9 +1197,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <div className="rounded-xl border border-white/5 bg-white/[0.04] p-5">
+              <div className="rounded-xl border border-[#A99A8C]/35 bg-[#CDBBA9]/35 p-5">
 
-                <p className="text-sm text-white/40">
+                <p className="text-sm text-[#6E473B]">
 
                   Categorical Columns
 
@@ -1306,9 +1217,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <div className="rounded-xl border border-white/5 bg-white/[0.04] p-5">
+              <div className="rounded-xl border border-[#A99A8C]/35 bg-[#CDBBA9]/35 p-5">
 
-                <p className="text-sm text-white/40">
+                <p className="text-sm text-[#6E473B]">
 
                   Date Columns
 
@@ -1326,9 +1237,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              <div className="rounded-xl border border-white/5 bg-white/[0.04] p-5">
+              <div className="rounded-xl border border-[#A99A8C]/35 bg-[#CDBBA9]/35 p-5">
 
-                <p className="text-sm text-white/40">
+                <p className="text-sm text-[#6E473B]">
 
                   Missing Values
 
@@ -1364,13 +1275,13 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
   <div>
 
-    <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+    <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
       Trend Analysis
 
@@ -1386,7 +1297,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-    <p className="mt-1 text-sm text-white/40">
+    <p className="mt-1 text-sm text-[#6E473B]">
 
       Trends automatically detected across date and numeric columns.
 
@@ -1466,7 +1377,7 @@ const executiveSummary = analysisInsights.find(
 
               key={dateColumn}
 
-              className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+              className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-5"
 
             >
 
@@ -1480,7 +1391,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <h3 className="text-base font-semibold text-white">
+                  <h3 className="text-base font-semibold text-[#291C0E]">
 
                     {dateColumn}
 
@@ -1488,7 +1399,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm text-white/40">
+                  <p className="mt-1 text-sm text-[#6E473B]">
 
                     {dateData.min_date} → {dateData.max_date}
 
@@ -1498,9 +1409,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <div className="rounded-lg bg-white/[0.04] px-4 py-2">
+                <div className="rounded-lg bg-[#CDBBA9]/35 px-4 py-2">
 
-                  <p className="text-xs text-white/35">
+                  <p className="text-xs text-[#6E473B]">
 
                     Unique Dates
 
@@ -1508,7 +1419,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm font-medium text-white">
+                  <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                     {dateData.unique_dates}
 
@@ -1530,7 +1441,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-[#6E473B]">
 
                     Metric
 
@@ -1548,7 +1459,7 @@ const executiveSummary = analysisInsights.find(
 
                     }
 
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-72"
+                    className="mt-2 w-full rounded-lg border border-[#A99A8C]/50 bg-[#F7F1E8] px-4 py-3 text-sm text-[#291C0E] outline-none transition focus:border-[#6E473B]/50 md:w-72"
 
                   >
 
@@ -1576,7 +1487,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-[#6E473B]">
 
                     From
 
@@ -1596,7 +1507,7 @@ const executiveSummary = analysisInsights.find(
 
                     }
 
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50"
+                    className="mt-2 w-full rounded-lg border border-[#A99A8C]/50 bg-[#F7F1E8] px-4 py-3 text-sm text-[#291C0E] outline-none transition focus:border-[#6E473B]/50"
 
                   />
 
@@ -1606,7 +1517,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+                  <label className="text-xs font-medium uppercase tracking-[0.15em] text-[#6E473B]">
 
                     To
 
@@ -1626,7 +1537,7 @@ const executiveSummary = analysisInsights.find(
 
                     }
 
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50"
+                    className="mt-2 w-full rounded-lg border border-[#A99A8C]/50 bg-[#F7F1E8] px-4 py-3 text-sm text-[#291C0E] outline-none transition focus:border-[#6E473B]/50"
 
                   />
 
@@ -1646,7 +1557,7 @@ const executiveSummary = analysisInsights.find(
 
                   }}
 
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+                  className="rounded-lg border border-[#A99A8C]/50 bg-[#CDBBA9]/35 px-4 py-3 text-sm text-[#6E473B] transition hover:bg-white/[0.08] hover:text-[#291C0E]"
 
                 >
 
@@ -1670,7 +1581,7 @@ const executiveSummary = analysisInsights.find(
 
                   <div className="mb-2">
 
-                    <h4 className="text-sm font-medium text-white/80">
+                    <h4 className="text-sm font-medium text-[#291C0E]">
 
                       {activeMetric}
 
@@ -1678,7 +1589,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                    <p className="mt-1 text-xs text-white/30">
+                    <p className="mt-1 text-xs text-[#6E473B]">
 
                       Showing {filteredTrend.length} of{" "}
 
@@ -1704,11 +1615,11 @@ const executiveSummary = analysisInsights.find(
 
               ) : (
 
-                <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center">
+                <div className="mt-6 rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-6 text-center">
 
 
 
-                  <p className="text-sm text-white/40">
+                  <p className="text-sm text-[#6E473B]">
 
                     No numeric metrics available for this time series.
 
@@ -1736,11 +1647,11 @@ const executiveSummary = analysisInsights.find(
 
   ) : (
 
-    <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
+    <div className="mt-6 rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-8 text-center">
 
 
 
-      <p className="text-sm font-medium text-white/60">
+      <p className="text-sm font-medium text-[#6E473B]">
 
         No date or time columns detected
 
@@ -1748,7 +1659,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-white/30">
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#6E473B]">
 
         Time-series analysis will automatically appear when your
 
@@ -1782,13 +1693,13 @@ const executiveSummary = analysisInsights.find(
 
   chartRecommendations.data?.length > 0 && (
 
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
       <div>
 
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
           Visualization Engine
 
@@ -1804,7 +1715,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <p className="mt-1 text-sm text-white/40">
+        <p className="mt-1 text-sm text-[#6E473B]">
 
           Charts automatically selected based on your dataset structure.
 
@@ -1818,7 +1729,7 @@ const executiveSummary = analysisInsights.find(
 
       <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
 
-  <label className="text-xs font-medium uppercase tracking-[0.15em] text-white/40">
+  <label className="text-xs font-medium uppercase tracking-[0.15em] text-[#6E473B]">
 
     Chart Type
 
@@ -1836,7 +1747,7 @@ const executiveSummary = analysisInsights.find(
 
     }
 
-    className="w-full rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 md:w-64"
+    className="w-full rounded-lg border border-[#A99A8C]/50 bg-[#F7F1E8] px-4 py-3 text-sm text-[#291C0E] outline-none transition focus:border-[#6E473B]/50 md:w-64"
 
   >
 
@@ -1892,7 +1803,7 @@ const executiveSummary = analysisInsights.find(
 
                   key={`${recommendation.chart_type}-${recommendation.x}-${recommendation.y}-${index}`}
 
-                  className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+                  className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-5"
 
                 >
 
@@ -1906,7 +1817,7 @@ const executiveSummary = analysisInsights.find(
 
                     <div>
 
-                      <h3 className="text-sm font-semibold text-white">
+                      <h3 className="text-sm font-semibold text-[#291C0E]">
 
                         {recommendation.y
 
@@ -1918,7 +1829,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                      <p className="mt-1 text-xs uppercase tracking-wider text-white/30">
+                      <p className="mt-1 text-xs uppercase tracking-wider text-[#6E473B]">
 
                         {recommendation.chart_type} chart
 
@@ -1926,7 +1837,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                      <p className="mt-2 text-xs leading-5 text-white/35">
+                      <p className="mt-2 text-xs leading-5 text-[#6E473B]">
 
                         {recommendation.reason}
 
@@ -1978,9 +1889,9 @@ const executiveSummary = analysisInsights.find(
 
       ).length === 0 && (
 
-        <div className="mt-6 rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
+        <div className="mt-6 rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-8 text-center">
 
-          <p className="text-sm font-medium text-white/50">
+          <p className="text-sm font-medium text-[#6E473B]">
 
             No charts available
 
@@ -1988,7 +1899,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          <p className="mt-2 text-sm text-white/30">
+          <p className="mt-2 text-sm text-[#6E473B]">
 
             No recommendations match the selected chart type.
 
@@ -2018,13 +1929,13 @@ const executiveSummary = analysisInsights.find(
 
   Object.keys(outlierAnalysis.data || {}).length > 0 && (
 
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
       <div>
 
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
           Statistical Analysis
 
@@ -2040,7 +1951,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <p className="mt-1 text-sm text-white/40">
+        <p className="mt-1 text-sm text-[#6E473B]">
 
           Potential outliers detected using the 1.5 × IQR statistical rule.
 
@@ -2062,7 +1973,7 @@ const executiveSummary = analysisInsights.find(
 
               key={columnName}
 
-              className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+              className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-5"
 
             >
 
@@ -2072,7 +1983,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-[#291C0E]">
 
                   {columnName}
 
@@ -2086,9 +1997,9 @@ const executiveSummary = analysisInsights.find(
 
                     stats.outlier_count > 0
 
-                      ? "bg-amber-400/10 text-amber-300"
+                      ? "bg-[#6E473B]/10 text-[#6E473B]"
 
-                      : "bg-emerald-400/10 text-emerald-300"
+                      : "bg-[#6E473B]/10 text-[#6E473B]"
 
                   }`}
 
@@ -2108,9 +2019,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <div className="rounded-lg bg-white/[0.04] p-3">
+                <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                  <p className="text-xs text-white/35">
+                  <p className="text-xs text-[#6E473B]">
 
                     Outlier %
 
@@ -2118,7 +2029,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm font-medium text-white">
+                  <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                     {stats.outlier_percentage}%
 
@@ -2128,9 +2039,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <div className="rounded-lg bg-white/[0.04] p-3">
+                <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                  <p className="text-xs text-white/35">
+                  <p className="text-xs text-[#6E473B]">
 
                     IQR
 
@@ -2138,7 +2049,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm font-medium text-white">
+                  <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                     {stats.iqr}
 
@@ -2148,9 +2059,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <div className="rounded-lg bg-white/[0.04] p-3">
+                <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                  <p className="text-xs text-white/35">
+                  <p className="text-xs text-[#6E473B]">
 
                     Lower Bound
 
@@ -2158,7 +2069,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm font-medium text-white/80">
+                  <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                     {stats.lower_bound}
 
@@ -2168,9 +2079,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <div className="rounded-lg bg-white/[0.04] p-3">
+                <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                  <p className="text-xs text-white/35">
+                  <p className="text-xs text-[#6E473B]">
 
                     Upper Bound
 
@@ -2178,7 +2089,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm font-medium text-white/80">
+                  <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                     {stats.upper_bound}
 
@@ -2198,7 +2109,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <p className="text-xs text-white/30">
+                  <p className="text-xs text-[#6E473B]">
 
                     Q1
 
@@ -2206,7 +2117,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-[#6E473B]">
 
                     {stats.q1}
 
@@ -2218,7 +2129,7 @@ const executiveSummary = analysisInsights.find(
 
                 <div>
 
-                  <p className="text-xs text-white/30">
+                  <p className="text-xs text-[#6E473B]">
 
                     Q3
 
@@ -2226,7 +2137,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-[#6E473B]">
 
                     {stats.q3}
 
@@ -2270,13 +2181,13 @@ const executiveSummary = analysisInsights.find(
 
           Object.keys(categoricalSummary.data || {}).length > 0 && (
 
-            <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
               <div>
 
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
                   Category Analysis
 
@@ -2292,7 +2203,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <p className="mt-1 text-sm text-white/40">
+                <p className="mt-1 text-sm text-[#6E473B]">
 
                   Most common values detected across categorical columns.
 
@@ -2314,13 +2225,13 @@ const executiveSummary = analysisInsights.find(
 
                       key={columnName}
 
-                      className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+                      className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-5"
 
                     >
 
 
 
-                      <h3 className="text-sm font-semibold text-white">
+                      <h3 className="text-sm font-semibold text-[#291C0E]">
 
                         {columnName}
 
@@ -2370,7 +2281,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                                  <span className="text-sm text-white/70">
+                                  <span className="text-sm text-[#6E473B]">
 
                                     {String(item.value)}
 
@@ -2378,7 +2289,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                                  <span className="text-xs text-white/40">
+                                  <span className="text-xs text-[#6E473B]">
 
                                     {item.count}
 
@@ -2390,13 +2301,13 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#CDBBA9]/50">
 
 
 
                                   <div
 
-                                    className="h-full rounded-full bg-blue-400 transition-all duration-700"
+                                    className="h-full rounded-full bg-[#6E473B] transition-all duration-700"
 
                                     style={{
 
@@ -2456,13 +2367,13 @@ const executiveSummary = analysisInsights.find(
 
           Object.keys(numericSummary.data || {}).length > 0 && (
 
-            <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
               <div>
 
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
                   Numeric Analysis
 
@@ -2478,7 +2389,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <p className="mt-1 text-sm text-white/40">
+                <p className="mt-1 text-sm text-[#6E473B]">
 
                   Statistical summaries automatically generated for numeric columns.
 
@@ -2500,13 +2411,13 @@ const executiveSummary = analysisInsights.find(
 
                       key={columnName}
 
-                      className="rounded-xl border border-white/5 bg-white/[0.03] p-5"
+                      className="rounded-xl border border-[#A99A8C]/35 bg-[#F7F1E8] p-5"
 
                     >
 
 
 
-                      <h3 className="text-sm font-semibold text-white">
+                      <h3 className="text-sm font-semibold text-[#291C0E]">
 
                         {columnName}
 
@@ -2518,9 +2429,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                        <div className="rounded-lg bg-white/[0.04] p-3">
+                        <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                          <p className="text-xs text-white/35">
+                          <p className="text-xs text-[#6E473B]">
 
                             Minimum
 
@@ -2528,7 +2439,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                          <p className="mt-1 text-sm font-medium text-white/80">
+                          <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                             {stats.min ?? "—"}
 
@@ -2538,9 +2449,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                        <div className="rounded-lg bg-white/[0.04] p-3">
+                        <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                          <p className="text-xs text-white/35">
+                          <p className="text-xs text-[#6E473B]">
 
                             Maximum
 
@@ -2548,7 +2459,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                          <p className="mt-1 text-sm font-medium text-white/80">
+                          <p className="mt-1 text-sm font-medium text-[#291C0E]">
 
                             {stats.max ?? "—"}
 
@@ -2558,9 +2469,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                        <div className="rounded-lg bg-white/[0.04] p-3">
+                        <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                          <p className="text-xs text-white/35">
+                          <p className="text-xs text-[#6E473B]">
 
                             Mean
 
@@ -2568,7 +2479,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                          <p className="mt-1 text-sm font-medium text-blue-300">
+                          <p className="mt-1 text-sm font-medium text-[#6E473B]">
 
                             {stats.mean ?? "—"}
 
@@ -2578,9 +2489,9 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                        <div className="rounded-lg bg-white/[0.04] p-3">
+                        <div className="rounded-lg bg-[#CDBBA9]/35 p-3">
 
-                          <p className="text-xs text-white/35">
+                          <p className="text-xs text-[#6E473B]">
 
                             Median
 
@@ -2588,7 +2499,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                          <p className="mt-1 text-sm font-medium text-blue-300">
+                          <p className="mt-1 text-sm font-medium text-[#6E473B]">
 
                             {stats.median ?? "—"}
 
@@ -2632,13 +2543,13 @@ const executiveSummary = analysisInsights.find(
 
           Object.keys(correlations.data || {}).length > 0 && (
 
-            <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
               <div>
 
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-blue-400/80">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#6E473B]/80">
 
                   Relationship Analysis
 
@@ -2654,7 +2565,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                <p className="mt-1 text-sm text-white/40">
+                <p className="mt-1 text-sm text-[#6E473B]">
 
                   Relationships automatically detected between numeric columns.
 
@@ -2694,7 +2605,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
@@ -2706,7 +2617,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-            <p className="mt-1 text-sm text-white/40">
+            <p className="mt-1 text-sm text-[#6E473B]">
 
               Columns available for numerical analysis.
 
@@ -2726,13 +2637,13 @@ const executiveSummary = analysisInsights.find(
 
                     key={column.name}
 
-                    className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3"
+                    className="flex items-center justify-between rounded-xl bg-[#CDBBA9]/35 px-4 py-3"
 
                   >
 
 
 
-                    <span className="text-sm text-white/80">
+                    <span className="text-sm text-[#291C0E]">
 
                       {column.name}
 
@@ -2740,7 +2651,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                    <span className="text-xs text-white/30">
+                    <span className="text-xs text-[#6E473B]">
 
                       {column.data_type}
 
@@ -2768,7 +2679,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
@@ -2780,7 +2691,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-            <p className="mt-1 text-sm text-white/40">
+            <p className="mt-1 text-sm text-[#6E473B]">
 
               Columns containing categorical values.
 
@@ -2800,13 +2711,13 @@ const executiveSummary = analysisInsights.find(
 
                     key={column.name}
 
-                    className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3"
+                    className="flex items-center justify-between rounded-xl bg-[#CDBBA9]/35 px-4 py-3"
 
                   >
 
 
 
-                    <span className="text-sm text-white/80">
+                    <span className="text-sm text-[#291C0E]">
 
                       {column.name}
 
@@ -2814,7 +2725,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-                    <span className="text-xs text-white/30">
+                    <span className="text-xs text-[#6E473B]">
 
                       {column.unique_values} unique
 
@@ -2850,7 +2761,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-6">
 
 
 
@@ -2866,7 +2777,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-            <div className="mt-4 flex items-center gap-3 text-emerald-300">
+            <div className="mt-4 flex items-center gap-3 text-[#6E473B]">
 
 
 
@@ -2904,7 +2815,7 @@ const executiveSummary = analysisInsights.find(
 
                     key={index}
 
-                    className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"
+                    className="flex items-start gap-3 rounded-xl border border-[#6E473B]/20 bg-[#6E473B]/5 p-4"
 
                   >
 
@@ -2914,7 +2825,7 @@ const executiveSummary = analysisInsights.find(
 
                       size={19}
 
-                      className="mt-0.5 shrink-0 text-amber-400"
+                      className="mt-0.5 shrink-0 text-[#6E473B]"
 
                     />
 
@@ -2934,7 +2845,7 @@ const executiveSummary = analysisInsights.find(
 
                       {warning.count !== undefined && (
 
-                        <p className="mt-1 text-xs text-white/40">
+                        <p className="mt-1 text-xs text-[#6E473B]">
 
                           Count: {warning.count}
 
@@ -2974,6 +2885,13 @@ const executiveSummary = analysisInsights.find(
 
       </div>
 
+      <style jsx global>{`
+        .insights-theme [class*="text-white"], .insights-theme [class*="text-blue-"], .insights-theme [class*="text-emerald-"], .insights-theme [class*="text-amber-"], .insights-theme [class*="text-red-"] { color: #6E473B !important; }
+        .insights-theme [class*="bg-white/"], .insights-theme [class*="bg-blue-"], .insights-theme [class*="bg-emerald-"], .insights-theme [class*="bg-amber-"], .insights-theme [class*="bg-red-"] { background-color: #CDBBA9 !important; }
+        .insights-theme [class*="border-white/"], .insights-theme [class*="border-blue-"], .insights-theme [class*="border-emerald-"], .insights-theme [class*="border-amber-"], .insights-theme [class*="border-red-"] { border-color: #A99A8C !important; }
+        .insights-theme select, .insights-theme input { background-color: #F7F1E8 !important; color: #291C0E !important; border-color: #A99A8C !important; }
+        .insights-theme section, .insights-theme article { border-radius: 1rem; }
+      `}</style>
     </main>
 
   );

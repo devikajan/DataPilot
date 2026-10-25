@@ -1,10 +1,10 @@
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
 from typing import Optional
 
-from app.auth.dependencies import get_current_user
-from app.api.datasets import verify_dataset_ownership, read_dataset
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from app.api.datasets import read_dataset
 from app.services.chart_tool import generate_chart_data
 from app.services.dataset_storage import get_dataset_path
 
@@ -23,17 +23,8 @@ class ChartRequest(BaseModel):
 
 
 @router.post("/")
-def create_chart(
-    request: ChartRequest,
-    current_user: dict = Depends(get_current_user),
-):
+def create_chart(request: ChartRequest):
     try:
-        # Verify that this dataset belongs to the logged-in user.
-        verify_dataset_ownership(
-            request.dataset,
-            current_user["id"],
-        )
-
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():
@@ -42,13 +33,13 @@ def create_chart(
                 detail="Dataset file not found",
             )
 
-        # Use the shared reader so special CSV headers are handled.
+        # Read the dataset using the shared reader.
         df = read_dataset(
             dataset_path,
             request.dataset,
         )
 
-        # Validate requested columns before generating the chart.
+        # Validate the requested X-axis column.
         if request.x_column not in df.columns:
             raise HTTPException(
                 status_code=400,
@@ -58,6 +49,7 @@ def create_chart(
                 ),
             )
 
+        # Validate the requested Y-axis column when provided.
         if (
             request.y_column
             and request.y_column not in df.columns
@@ -91,8 +83,8 @@ def create_chart(
             detail=str(error),
         )
 
-    except Exception as error:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail="Failed to generate chart.",
         )

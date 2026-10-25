@@ -2,13 +2,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "@/lib/auth";
-
-type User = {
-  id: number;
-  name: string;
-  email: string;
-};
 
 type Dataset = {
   id: number;
@@ -21,7 +14,6 @@ type Dataset = {
 };
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,32 +23,9 @@ export default function DashboardPage() {
 
     async function loadDashboard() {
       try {
-        const currentUser = await getCurrentUser();
 
-        if (!currentUser) {
-          window.location.href = "/login";
-          return;
-        }
-
-        if (cancelled) return;
-        setUser(currentUser);
-
-        const token = localStorage.getItem("access_token");
-
-        const response = await fetch(
-          "http://https://datapilot-api-sgvj.onrender.com/datasets/",
-          {
-            headers: {
-              Authorization: `Bearer ${token ?? ""}`,
-            },
-          }
-        );
-
-        if (response.status === 401) {
-          localStorage.removeItem("access_token");
-          window.location.href = "/login";
-          return;
-        }
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com").replace(/\/$/, "");
+        const response = await fetch(`${apiBase}/datasets/`);
 
         if (!response.ok) {
           throw new Error("Unable to load your datasets.");
@@ -142,10 +111,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070a13] text-white">
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F3ED] text-[#291C0E]">
         <div className="text-center">
-          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-blue-400/20 border-t-blue-400" />
-          <p className="mt-4 text-sm text-slate-400">
+          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-[#A99A8C]/45 border-t-[#6E473B]" />
+          <p className="mt-4 text-sm text-[#76695D]">
             Preparing your workspace...
           </p>
         </div>
@@ -154,18 +123,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070a13] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-10">
+    <main className="min-h-screen bg-[#F7F3ED] px-4 py-6 text-[#291C0E] sm:px-6 lg:px-10 lg:py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-xl font-bold text-blue-300">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#A99A8C]/45 bg-[#E7DCCE] text-xl font-bold text-[#6E473B]">
               D
             </div>
             <div>
               <p className="text-lg font-semibold tracking-tight">
                 DataPilot
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#76695D]">
                 Business intelligence workspace
               </p>
             </div>
@@ -174,36 +143,26 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/datasets")}
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-300 transition hover:border-blue-400/30 hover:bg-blue-500/10"
+              className="rounded-xl border border-[#D9CCBE] bg-white/70 px-4 py-2.5 text-sm text-[#5C4A3D] transition hover:border-[#6E473B]/60 hover:bg-[#E7DCCE]"
             >
               My datasets
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem("access_token");
-                window.location.href = "/login";
-              }}
-              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-400 transition hover:border-red-400/30 hover:text-red-300"
-            >
-              Log out
             </button>
           </div>
         </header>
 
-        <section className="relative mb-8 overflow-hidden rounded-3xl border border-blue-400/15 bg-gradient-to-br from-blue-600/20 via-indigo-500/[0.08] to-[#101525] p-6 sm:p-9">
-          <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
+        <section className="relative mb-8 overflow-hidden rounded-3xl border border-[#A99A8C]/50 bg-gradient-to-br from-[#E7DCCE] via-[#F1E8DD] to-[#CDBBA9] p-6 sm:p-9">
+          <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-[#A99A8C]/25 blur-3xl" />
 
           <div className="relative max-w-2xl">
-            <span className="inline-flex rounded-full border border-blue-300/20 bg-blue-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300">
+            <span className="inline-flex rounded-full border border-[#A99A8C]/50 bg-[#E7DCCE] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E473B]">
               Your analytics overview
             </span>
 
             <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
               {greeting}
-              {user?.name ? `, ${user.name.split(" ")[0]}` : ""}
             </h1>
 
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#76695D] sm:text-base">
               Your data, insights, and analysis tools in one workspace.
               Pick up where you left off or start a new analysis.
             </p>
@@ -211,13 +170,13 @@ export default function DashboardPage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 onClick={() => navigate("/ai-analyst")}
-                className="rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:-translate-y-0.5 hover:bg-blue-400"
+                className="rounded-xl bg-[#6E473B] px-5 py-3 text-sm font-semibold text-[#291C0E] shadow-lg shadow-[#6E473B]/15 transition hover:-translate-y-0.5 hover:bg-[#543629]"
               >
                 Open AI Analyst →
               </button>
               <button
                 onClick={() => navigate("/datasets")}
-                className="rounded-xl border border-white/10 bg-white/[0.05] px-5 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                className="rounded-xl border border-[#D9CCBE] bg-white/60 px-5 py-3 text-sm font-medium text-[#291C0E] transition hover:bg-[#E7DCCE]"
               >
                 Browse datasets
               </button>
@@ -226,11 +185,11 @@ export default function DashboardPage() {
         </section>
 
         {error && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-400/20 bg-red-500/[0.06] p-4 text-sm text-red-300">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800">
             <span>{error}</span>
             <button
               onClick={() => window.location.reload()}
-              className="rounded-lg border border-red-400/20 px-3 py-2 hover:bg-red-500/10"
+              className="rounded-lg border border-red-300 px-3 py-2 hover:bg-red-100"
             >
               Retry
             </button>
@@ -240,7 +199,7 @@ export default function DashboardPage() {
         <section>
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Workspace overview</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[#76695D]">
               Live statistics from your uploaded datasets.
             </p>
           </div>
@@ -251,37 +210,37 @@ export default function DashboardPage() {
                 label: "Datasets",
                 value: datasets.length.toLocaleString(),
                 detail: "Uploaded files",
-                accent: "text-blue-300",
+                accent: "text-[#6E473B]",
                 icon: "▤",
               },
               {
                 label: "Total records",
                 value: totalRows.toLocaleString(),
                 detail: "Across available datasets",
-                accent: "text-violet-300",
+                accent: "text-[#8B7460]",
                 icon: "▦",
               },
               {
                 label: "Total columns",
                 value: totalColumns.toLocaleString(),
                 detail: "Across available datasets",
-                accent: "text-cyan-300",
+                accent: "text-[#8B7460]",
                 icon: "▥",
               },
               {
                 label: "Storage used",
                 value: formatSize(totalSize),
                 detail: "Size of stored dataset files",
-                accent: "text-emerald-300",
+                accent: "text-[#6E473B]",
                 icon: "▣",
               },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 transition duration-300 hover:-translate-y-1 hover:border-blue-400/20 hover:bg-white/[0.04]"
+                className="group rounded-2xl border border-[#D9CCBE] bg-white/65 p-5 transition duration-300 hover:-translate-y-1 hover:border-[#A99A8C]/45 hover:bg-white/70"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-400">{stat.label}</p>
+                  <p className="text-sm text-[#76695D]">{stat.label}</p>
                   <span className={`text-xl ${stat.accent}`}>
                     {stat.icon}
                   </span>
@@ -289,7 +248,7 @@ export default function DashboardPage() {
                 <p className="mt-5 break-words text-3xl font-semibold tracking-tight">
                   {stat.value}
                 </p>
-                <p className="mt-2 text-xs text-slate-600">
+                <p className="mt-2 text-xs text-[#8A7B6C]">
                   {stat.detail}
                 </p>
               </div>
@@ -301,54 +260,54 @@ export default function DashboardPage() {
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Your datasets</h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[#76695D]">
                 Open a dataset or start exploring your data.
               </p>
             </div>
             <button
               onClick={() => navigate("/datasets")}
-              className="text-sm font-medium text-blue-300 transition hover:text-blue-200"
+              className="text-sm font-medium text-[#6E473B] transition hover:text-[#291C0E]"
             >
               View all datasets →
             </button>
           </div>
 
           {datasets.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-500/10 text-xl text-blue-300">
+            <div className="rounded-2xl border border-dashed border-[#D9CCBE] bg-white/55 px-6 py-12 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-[#A99A8C]/50 bg-[#E7DCCE] text-xl text-[#6E473B]">
                 +
               </div>
               <h3 className="mt-4 font-medium">Your workspace is ready</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#76695D]">
                 Upload a CSV or Excel file to start exploring your data
                 with DataPilot.
               </p>
               <button
                 onClick={() => navigate("/ai-analyst")}
-                className="mt-5 rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold transition hover:bg-blue-400"
+                className="mt-5 rounded-xl bg-[#6E473B] px-5 py-3 text-sm font-semibold transition hover:bg-[#543629]"
               >
                 Upload a dataset →
               </button>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+            <div className="overflow-hidden rounded-2xl border border-[#D9CCBE] bg-white/55">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[620px] text-left">
-                  <thead className="border-b border-white/[0.08] bg-white/[0.025]">
+                  <thead className="border-b border-[#D9CCBE] bg-white/65">
                     <tr>
-                      <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-wider text-[#76695D]">
                         Dataset
                       </th>
-                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-[#76695D]">
                         Rows
                       </th>
-                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-[#76695D]">
                         Columns
                       </th>
-                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-[#76695D]">
                         File size
                       </th>
-                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-5 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-[#76695D]">
                         Action
                       </th>
                     </tr>
@@ -357,36 +316,36 @@ export default function DashboardPage() {
                     {datasets.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-b border-white/[0.05] transition last:border-b-0 hover:bg-blue-500/[0.035]"
+                        className="border-b border-[#E7DCCE] transition last:border-b-0 hover:bg-[#F5EEE6]"
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-400/10 bg-blue-500/[0.08] text-xs font-semibold text-blue-300">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#D9CCBE] bg-[#E7DCCE] text-xs font-semibold text-[#6E473B]">
                               {item.file_type || "FILE"}
                             </div>
                             <div className="min-w-0">
-                              <p className="max-w-[240px] truncate text-sm font-medium text-slate-200">
+                              <p className="max-w-[240px] truncate text-sm font-medium text-[#291C0E]">
                                 {item.filename}
                               </p>
-                              <p className="mt-1 text-xs text-slate-600">
+                              <p className="mt-1 text-xs text-[#8A7B6C]">
                                 {formatDate(item.uploaded_at)}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-right text-sm tabular-nums text-slate-300">
+                        <td className="px-5 py-4 text-right text-sm tabular-nums text-[#5C4A3D]">
                           {(Number(item.row_count) || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-4 text-right text-sm tabular-nums text-slate-300">
+                        <td className="px-5 py-4 text-right text-sm tabular-nums text-[#5C4A3D]">
                           {(Number(item.column_count) || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-4 text-right text-sm text-slate-400">
+                        <td className="px-5 py-4 text-right text-sm text-[#76695D]">
                           {formatSize(Number(item.size_bytes) || 0)}
                         </td>
                         <td className="px-5 py-4 text-right">
                           <button
                             onClick={() => navigate("/ai-analyst")}
-                            className="whitespace-nowrap rounded-lg border border-blue-400/15 bg-blue-500/[0.07] px-3 py-2 text-xs font-medium text-blue-300 transition hover:bg-blue-500/15"
+                            className="whitespace-nowrap rounded-lg border border-[#A99A8C]/50 bg-[#E7DCCE] px-3 py-2 text-xs font-medium text-[#6E473B] transition hover:bg-[#A99A8C]/25"
                           >
                             Analyze →
                           </button>
@@ -403,7 +362,7 @@ export default function DashboardPage() {
         <section className="mt-10">
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Quick access</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[#76695D]">
               Choose a tool for your next task.
             </p>
           </div>
@@ -415,36 +374,36 @@ export default function DashboardPage() {
                 description: "Ask questions and discover patterns in your data.",
                 tag: "AI-powered",
                 path: "/ai-analyst",
-                color: "border-blue-400/15 hover:border-blue-400/35",
+                color: "border-[#A99A8C]/50 hover:border-blue-400/35",
               },
               {
                 title: "Chart Tool",
                 description: "Create visualizations from dataset columns.",
                 tag: "Visualization",
                 path: "/chart-tool",
-                color: "border-violet-400/15 hover:border-violet-400/35",
+                color: "border-[#CDBBA9] hover:border-[#6E473B]/60",
               },
               {
                 title: "Insights",
                 description: "Explore analytical summaries and findings.",
                 tag: "Analytics",
                 path: "/insights",
-                color: "border-emerald-400/15 hover:border-emerald-400/35",
+                color: "border-[#CDBBA9] hover:border-[#6E473B]/60",
               },
             ].map((tool) => (
               <button
                 key={tool.title}
                 onClick={() => navigate(tool.path)}
-                className={`rounded-2xl border bg-white/[0.02] p-5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/[0.04] ${tool.color}`}
+                className={`rounded-2xl border bg-white/55 p-5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/70 ${tool.color}`}
               >
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                <span className="rounded-full border border-[#D9CCBE] bg-white/70 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-[#76695D]">
                   {tool.tag}
                 </span>
                 <h3 className="mt-4 font-semibold">{tool.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-2 text-sm leading-6 text-[#76695D]">
                   {tool.description}
                 </p>
-                <p className="mt-4 text-xs font-medium text-blue-300">
+                <p className="mt-4 text-xs font-medium text-[#6E473B]">
                   Open tool →
                 </p>
               </button>
@@ -452,7 +411,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <footer className="mt-12 border-t border-white/[0.06] py-5 text-center text-xs text-slate-600">
+        <footer className="mt-12 border-t border-[#D9CCBE] py-5 text-center text-xs text-[#8A7B6C]">
           DataPilot · Your AI-powered analytics workspace
         </footer>
       </div>

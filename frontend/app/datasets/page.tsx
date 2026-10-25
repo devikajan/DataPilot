@@ -1,13 +1,15 @@
+
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getCurrentUser } from "@/lib/auth";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Search,
   Upload,
   Database,
   ArrowRight,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react";
 
 type Dataset = {
@@ -16,174 +18,239 @@ type Dataset = {
   size_bytes: number;
 };
 
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://datapilot-api-sgvj.onrender.com"
+).replace(/\/+$/, "");
+
+const C = {
+  cream: "#E7DCCE",
+  oat: "#CDBBA9",
+  taupe: "#A99A8C",
+  espresso: "#291C0E",
+  brown: "#6E473B",
+  surface: "#F7F1E8",
+};
+
+async function readResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text };
+  }
+}
+
+function getErrorMessage(data: unknown, status: number) {
+  const body = data as {
+    detail?: unknown;
+    message?: unknown;
+  };
+
+  if (Array.isArray(body?.detail)) {
+    return body.detail
+      .map((item: { loc?: unknown[]; msg?: string }) => {
+        const location = item.loc?.join(" → ");
+        return location
+          ? `${location}: ${item.msg || "Invalid input"}`
+          : item.msg || "Invalid input";
+      })
+      .join("; ");
+  }
+
+  if (typeof body?.detail === "string") {
+    return body.detail;
+  }
+
+  if (typeof body?.message === "string") {
+    return body.message;
+  }
+
+  switch (status) {
+    case 401:
+      return "The API requires authentication. Check the backend route configuration.";
+    case 403:
+      return "The API denied this request. Check backend permissions.";
+    case 404:
+      return "The dataset endpoint was not found. Check the backend route.";
+    case 422:
+      return "The API rejected the request because required input is missing or invalid. Check the response details.";
+    case 500:
+      return "The backend encountered an internal error. Check the Render logs.";
+    default:
+      return `Request failed with HTTP ${status}.`;
+  }
+}
+
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchDatasets = async () => {
+  const fetchDatasets = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
+      setSuccess("");
 
-      const token = localStorage.getItem("access_token");
+      const response = await fetch(`${API_URL}/datasets/`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
 
-const response = await fetch(
-  "http://https://datapilot-api-sgvj.onrender.com/datasets/",
-  {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  }
-);
+      const data = await readResponse(response);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch datasets");
+        throw new Error(
+          `Could not load datasets (HTTP ${response.status}): ${getErrorMessage(data, response.status)}`
+        );
       }
 
-      const data = await response.json();
+      const parsed = data as {
+        datasets?: unknown;
+      };
 
-      setDatasets(data.datasets ?? []);
+      const datasetList = Array.isArray(data)
+        ? data
+        : Array.isArray(parsed?.datasets)
+          ? parsed.datasets
+          : null;
+
+      if (!datasetList) {
+        throw new Error(
+          "The API responded successfully, but its response did not contain a dataset list. Check the GET /datasets/ response format."
+        );
+      }
+
+      setDatasets(datasetList as Dataset[]);
     } catch (err) {
-      console.error(err);
-      setError("Could not load datasets.");
+      console.error("Dataset loading error:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while loading datasets."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-  async function checkAuthentication() {
-    const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      window.location.href = "/login";
-      return;
-    }
-
-    fetchDatasets();
-  }
-
-  checkAuthentication();
-}, []);
+    void fetchDatasets();
+  }, [fetchDatasets]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileUpload = async (
+  async function handleFileUpload(
     event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
+  ) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
-    const allowedExtensions = [
-      ".csv",
-      ".xlsx",
-      ".xls",
-    ];
-
-    const extension =
-      "." + file.name.split(".").pop()?.toLowerCase();
+    const extension = `.${file.name.split(".").pop()?.toLowerCase()}`;
+    const allowedExtensions = [".csv", ".xlsx", ".xls"];
 
     if (!allowedExtensions.includes(extension)) {
-      setError(
-        "Unsupported file type. Please upload a CSV or Excel file."
-      );
-
-      event.target.value = "";
+      setError("Unsupported file type. Please select a CSV or Excel file.");
+      input.value = "";
       return;
     }
 
     try {
       setUploading(true);
       setError("");
+      setSuccess("");
 
       const formData = new FormData();
-
       formData.append("file", file);
 
-      const token = localStorage.getItem("access_token");
+      const response = await fetch(`${API_URL}/datasets/upload`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        body: formData,
+      });
 
-const response = await fetch(
-  "http://https://datapilot-api-sgvj.onrender.com/datasets/upload",
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  }
-);
-
-      const data = await response.json();
+      const data = await readResponse(response);
 
       if (!response.ok) {
         throw new Error(
-          data.detail || "Dataset upload failed."
+          `Upload failed (HTTP ${response.status}): ${getErrorMessage(data, response.status)}`
         );
       }
 
+      setSuccess(`${file.name} uploaded successfully.`);
       await fetchDatasets();
     } catch (err) {
-      console.error(err);
+      console.error("Dataset upload error:", err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "Dataset upload failed."
+          : "An unexpected error occurred during upload."
       );
     } finally {
       setUploading(false);
-
-      event.target.value = "";
+      input.value = "";
     }
-  };
+  }
 
   const filteredDatasets = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
     return datasets.filter((dataset) =>
-      dataset.filename
-        .toLowerCase()
-        .includes(search.toLowerCase())
+      dataset.filename?.toLowerCase().includes(term)
     );
   }, [datasets, search]);
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) {
-      return `${bytes} B`;
-    }
-
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
-
+  function formatSize(bytes: number) {
+    if (!Number.isFinite(bytes) || bytes < 0) return "Unknown size";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  }
 
   return (
-    <main className="min-h-screen bg-[#070a13] px-6 py-10 text-white md:px-10">
+    <main
+      className="min-h-screen px-5 py-8 md:px-10 md:py-10"
+      style={{ backgroundColor: C.cream, color: C.espresso }}
+    >
       <div className="mx-auto max-w-7xl">
-
-        {/* Header */}
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold">
+            <p
+              className="mb-2 text-xs font-semibold uppercase tracking-[0.2em]"
+              style={{ color: C.brown }}
+            >
+              Data workspace
+            </p>
+
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
               Datasets
             </h1>
 
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm md:text-base" style={{ color: C.brown }}>
               Manage, explore, and analyze your datasets.
             </p>
           </div>
 
-          {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -192,166 +259,228 @@ const response = await fetch(
             className="hidden"
           />
 
-          {/* Upload Button */}
           <button
+            type="button"
             onClick={handleUploadClick}
             disabled={uploading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: C.espresso, color: C.cream }}
           >
             <Upload size={17} />
-
-            {uploading
-              ? "Uploading..."
-              : "Upload Dataset"}
+            {uploading ? "Uploading..." : "Upload Dataset"}
           </button>
-        </div>
+        </header>
 
-        {/* Error */}
         {error && (
-          <div className="mt-6 rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-300">
-            {error}
+          <div
+            role="alert"
+            className="mt-6 flex flex-col gap-3 rounded-xl border p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+            style={{
+              borderColor: C.brown,
+              backgroundColor: "#F0E3D8",
+              color: C.espresso,
+            }}
+          >
+            <p className="break-words">{error}</p>
+
+            <button
+              type="button"
+              onClick={() => void fetchDatasets()}
+              className="inline-flex shrink-0 items-center gap-2 font-semibold underline underline-offset-4"
+            >
+              <RefreshCw size={14} />
+              Retry
+            </button>
           </div>
         )}
 
-        {/* Search */}
-        <div className="mt-8">
+        {success && (
+          <div
+            role="status"
+            className="mt-6 rounded-xl border px-4 py-3 text-sm"
+            style={{
+              borderColor: C.taupe,
+              backgroundColor: "#EEE7DA",
+              color: C.espresso,
+            }}
+          >
+            {success}
+          </div>
+        )}
+
+        <section className="mt-8">
           <div className="relative max-w-md">
             <Search
               size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
+              className="absolute left-4 top-1/2 -translate-y-1/2"
+              style={{ color: C.brown }}
             />
 
             <input
-              type="text"
+              type="search"
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Search datasets..."
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-3 pl-11 pr-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-blue-400/40"
+              aria-label="Search datasets"
+              className="w-full rounded-xl border py-3 pl-11 pr-4 text-sm outline-none transition focus:ring-2"
+              style={{
+                backgroundColor: C.surface,
+                borderColor: C.taupe,
+                color: C.espresso,
+              }}
             />
           </div>
-        </div>
+        </section>
 
-        {/* Dataset Section */}
-        <div className="mt-10">
+        <section className="mt-10">
+          <div className="mb-5 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Your datasets</h2>
+              <p className="mt-1 text-sm" style={{ color: C.brown }}>
+                {loading
+                  ? "Retrieving your datasets..."
+                  : `${filteredDatasets.length} ${
+                      filteredDatasets.length === 1
+                        ? "dataset"
+                        : "datasets"
+                    } shown`}
+              </p>
+            </div>
 
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">
-              Your datasets
-            </h2>
-
-            <p className="mt-1 text-sm text-white/30">
-              {datasets.length}{" "}
-              {datasets.length === 1
-                ? "dataset"
-                : "datasets"}{" "}
-              available
-            </p>
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-xl"
+              style={{ backgroundColor: C.oat, color: C.espresso }}
+            >
+              <Database size={21} />
+            </div>
           </div>
 
-          {/* Loading */}
           {loading && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <p className="text-sm text-white/40">
+            <div
+              className="rounded-2xl border p-10 text-center"
+              style={{
+                borderColor: C.taupe,
+                backgroundColor: C.surface,
+              }}
+            >
+              <RefreshCw
+                size={24}
+                className="mx-auto animate-spin"
+                style={{ color: C.brown }}
+              />
+              <p className="mt-3 text-sm" style={{ color: C.brown }}>
                 Loading datasets...
               </p>
             </div>
           )}
 
-          {/* Empty State */}
-          {!loading &&
-            !error &&
-            filteredDatasets.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
-
-                <Database
-                  size={32}
-                  className="mx-auto text-white/20"
-                />
-
-                <h3 className="mt-4 font-medium text-white">
-                  {search
-                    ? "No datasets found"
-                    : "No datasets yet"}
-                </h3>
-
-                <p className="mt-2 text-sm text-white/30">
-                  {search
-                    ? "Try a different search term."
-                    : "Upload your first dataset to get started."}
-                </p>
-
+          {!loading && !error && filteredDatasets.length === 0 && (
+            <div
+              className="rounded-2xl border-2 border-dashed p-10 text-center md:p-14"
+              style={{
+                borderColor: C.taupe,
+                backgroundColor: C.surface,
+              }}
+            >
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: C.oat, color: C.espresso }}
+              >
+                <FileSpreadsheet size={26} />
               </div>
-            )}
 
-          {/* Dataset Cards */}
-          {!loading &&
-            filteredDatasets.length > 0 && (
-              <div className="grid gap-4">
+              <h3 className="mt-4 font-semibold">
+                {search ? "No datasets found" : "No datasets yet"}
+              </h3>
 
-                {filteredDatasets.map((dataset) => (
-                  <div
-                    key={dataset.filename}
-                    className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-white/20 hover:bg-white/[0.05]"
-                  >
-                    <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <p className="mt-2 text-sm" style={{ color: C.brown }}>
+                {search
+                  ? "Try a different search term."
+                  : "Upload your first dataset to get started."}
+              </p>
 
-                      {/* Dataset Info */}
-                      <div className="flex items-center gap-4">
+              {!search && (
+                <button
+                  type="button"
+                  onClick={handleUploadClick}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition hover:opacity-90"
+                  style={{ backgroundColor: C.brown, color: C.cream }}
+                >
+                  <Upload size={16} />
+                  Choose a dataset
+                </button>
+              )}
+            </div>
+          )}
 
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-400/10">
-                          <Database
-                            size={20}
-                            className="text-blue-300"
-                          />
-                        </div>
-
-                        <div>
-                          <h3 className="font-medium text-white">
-                            {dataset.filename}
-                          </h3>
-
-                          <p className="mt-1 text-sm text-white/40">
-                            {dataset.file_type
-                              .replace(".", "")
-                              .toUpperCase()}
-                            {" · "}
-                            {formatSize(
-                              dataset.size_bytes
-                            )}
-                          </p>
-                        </div>
-
+          {!loading && filteredDatasets.length > 0 && (
+            <div className="grid gap-4">
+              {filteredDatasets.map((dataset) => (
+                <article
+                  key={dataset.filename}
+                  className="group rounded-2xl border p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                  style={{
+                    borderColor: C.taupe,
+                    backgroundColor: C.surface,
+                  }}
+                >
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                        style={{
+                          backgroundColor: C.oat,
+                          color: C.espresso,
+                        }}
+                      >
+                        <Database size={21} />
                       </div>
 
-                      {/* Metadata */}
-                      <div className="flex flex-wrap items-center gap-4">
+                      <div className="min-w-0">
+                        <h3 className="break-all font-semibold">
+                          {dataset.filename}
+                        </h3>
 
-                        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                          Stored
-                        </span>
-
-                        <Link
-                          href={`/datasets/${encodeURIComponent(
-                            dataset.filename
-                          )}`}
-                          className="inline-flex items-center gap-1.5 text-sm text-white/50 transition group-hover:text-white"
-                        >
-                          Open
-                          <ArrowRight size={15} />
-                        </Link>
-
+                        <p className="mt-1 text-sm" style={{ color: C.brown }}>
+                          {(dataset.file_type || "file")
+                            .replace(".", "")
+                            .toUpperCase()}
+                          {" · "}
+                          {formatSize(dataset.size_bytes)}
+                        </p>
                       </div>
+                    </div>
 
+                    <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+                      <span
+                        className="rounded-full border px-3 py-1 text-xs font-medium"
+                        style={{
+                          borderColor: C.taupe,
+                          backgroundColor: C.cream,
+                          color: C.brown,
+                        }}
+                      >
+                        Stored
+                      </span>
+
+                      <Link
+                        href={`/datasets/${encodeURIComponent(dataset.filename)}`}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold transition hover:underline"
+                        style={{ color: C.brown }}
+                      >
+                        Open
+                        <ArrowRight
+                          size={15}
+                          className="transition-transform group-hover:translate-x-1"
+                        />
+                      </Link>
                     </div>
                   </div>
-                ))}
-
-              </div>
-            )}
-
-        </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );

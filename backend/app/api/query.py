@@ -1,11 +1,10 @@
 
-import pandas as pd
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
 from typing import Optional
 
-from app.auth.dependencies import get_current_user
-from app.api.datasets import verify_dataset_ownership, read_dataset
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from app.api.datasets import read_dataset
 from app.services.dataset_query import query_dataset
 from app.services.dataset_storage import get_dataset_path
 
@@ -23,16 +22,8 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/")
-def run_query(
-    request: QueryRequest,
-    current_user: dict = Depends(get_current_user),
-):
+def run_query(request: QueryRequest):
     try:
-        verify_dataset_ownership(
-            request.dataset,
-            current_user["id"],
-        )
-
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():

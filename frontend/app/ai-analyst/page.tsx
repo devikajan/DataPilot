@@ -2,9 +2,10 @@
  
 import { useEffect, useRef, useState } from "react";
 
-import { getCurrentUser } from "@/lib/auth";
 
 import AutoChart from "@/components/AutoChart";
+
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com").replace(/\/$/, "");
 
 type Message = {
 
@@ -38,7 +39,7 @@ function renderAIAnswer(content: string) {
 
         return (
 
-          <strong key={index} className="font-semibold text-white">
+          <strong key={index} className="font-semibold text-[#291C0E]">
 
             {part.slice(2, -2)}
 
@@ -100,7 +101,7 @@ const parseTableRow = (line: string) =>
 
         key={key}
 
-        className="my-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-lg shadow-black/10"
+        className="my-5 overflow-hidden rounded-2xl border border-[#CDBBA9] bg-[#F5EEE5] shadow-lg shadow-black/10"
 
       >
 
@@ -110,7 +111,7 @@ const parseTableRow = (line: string) =>
 
             <thead>
 
-              <tr className="border-b border-white/[0.08] bg-blue-500/[0.06]">
+              <tr className="border-b border-[#CDBBA9] bg-amber-800/[0.06]">
 
                 {header.map((cell, index) => (
 
@@ -118,7 +119,7 @@ const parseTableRow = (line: string) =>
 
                     key={`${cell}-${index}`}
 
-                    className={`px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-300 ${
+                    className={`px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-900 ${
 
                       index === 0 ? "text-left" : "text-right"
 
@@ -144,7 +145,7 @@ const parseTableRow = (line: string) =>
 
                   key={`row-${rowIndex}`}
 
-                  className="border-b border-white/[0.05] transition last:border-b-0 hover:bg-white/[0.035]"
+                  className="border-b border-[#D8C8B8] transition last:border-b-0 hover:bg-[#F1E7DB]"
 
                 >
 
@@ -164,13 +165,13 @@ const parseTableRow = (line: string) =>
 
                           columnIndex === 0
 
-                            ? "font-medium text-slate-200"
+                            ? "font-medium text-[#3E2B22]"
 
                             : isPercentage
 
                               ? "text-right font-semibold text-emerald-300"
 
-                              : "text-right text-slate-400"
+                              : "text-right text-[#6E473B]"
 
                         }`}
 
@@ -244,7 +245,7 @@ const parseTableRow = (line: string) =>
 
           key={`paragraph-${index}`}
 
-          className="text-sm leading-7 text-slate-400"
+          className="text-sm leading-7 text-[#6E473B]"
 
         >
 
@@ -324,19 +325,19 @@ const parseTableRow = (line: string) =>
 
     <div className="space-y-5">
 
-      <div className="relative overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.08] via-indigo-500/[0.04] to-transparent p-5">
+      <div className="relative overflow-hidden rounded-2xl border border-amber-800/15 bg-gradient-to-br from-amber-800/[0.08] via-stone-700/[0.04] to-transparent p-5">
 
-        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-400/10 blur-2xl" />
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-amber-800/10 blur-2xl" />
 
         <div className="relative mb-3 flex items-center gap-2">
 
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-blue-400/15 bg-blue-500/10 text-sm text-blue-300">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-800/15 bg-amber-800/10 text-sm text-amber-900">
 
             ✦
 
           </div>
 
-          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
 
             Executive Summary
 
@@ -344,7 +345,7 @@ const parseTableRow = (line: string) =>
 
         </div>
 
-        <p className="relative text-[15px] leading-7 text-slate-200">
+        <p className="relative text-[15px] leading-7 text-[#3E2B22]">
 
           {formatText(summary)}
 
@@ -376,19 +377,19 @@ const parseTableRow = (line: string) =>
 
                 key={`${line}-${index}`}
 
-                className="group rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 transition duration-300 hover:border-blue-400/20 hover:bg-blue-500/[0.035]"
+                className="group rounded-xl border border-[#CDBBA9] bg-[#F5EEE5] p-4 transition duration-300 hover:border-amber-800/20 hover:bg-amber-800/[0.035]"
 
               >
 
                 <div className="flex gap-3">
 
-                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-blue-400/15 bg-blue-500/10 text-[10px] font-semibold text-blue-300">
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-amber-800/15 bg-amber-800/10 text-[10px] font-semibold text-amber-900">
 
                     {index + 1}
 
                   </div>
 
-                  <p className="text-sm leading-6 text-slate-300">
+                  <p className="text-sm leading-6 text-[#4D3B31]">
 
                     {formatText(cleanLine(line))}
 
@@ -412,9 +413,9 @@ const parseTableRow = (line: string) =>
 
           <div className="mb-3 flex items-center gap-2">
 
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.7)]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-800 shadow-[0_0_8px_rgba(167,139,250,0.7)]" />
 
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-400">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
 
               Analysis
 
@@ -422,7 +423,7 @@ const parseTableRow = (line: string) =>
 
           </div>
 
-          <div className="rounded-xl border border-white/[0.06] bg-black/10 p-5">
+          <div className="rounded-xl border border-[#D8C8B8] bg-[#E7DCCE] p-5">
 
             <div className="space-y-3">
 
@@ -464,7 +465,6 @@ export default function AnalystPage() {
 
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  const [authLoading, setAuthLoading] = useState(true);
 
   const thinkingSteps = [
 
@@ -479,34 +479,6 @@ export default function AnalystPage() {
     "Preparing your answer...",
 
   ];
-
-  /* =========================================================
-
-     AUTHENTICATION
-
-  \========================================================= */
-
-  useEffect(() => {
-
-    async function checkAuthentication() {
-
-      const currentUser = await getCurrentUser();
-
-      if (!currentUser) {
-
-        window.location.href = "/login";
-
-        return;
-
-      }
-
-      setAuthLoading(false);
-
-    }
-
-    checkAuthentication();
-
-  }, []);
 
   /* =========================================================
 
@@ -557,23 +529,13 @@ async function handleFileUpload(
   setQuestion("");
 
   try {
-    const token = localStorage.getItem("access_token");
-
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
     const formData = new FormData();
     formData.append("file", file);
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/datasets/upload`,
+      `${API_URL}/datasets/upload`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       }
     );
@@ -663,6 +625,7 @@ async function askAI(customQuestion?: string) {
   setQuestion("");
 
   setThinkingStep(0);
+  setLoading(true);
 
   // Add user message
 
@@ -684,7 +647,7 @@ async function askAI(customQuestion?: string) {
 
     const response = await fetch(
 
-      `${process.env.NEXT_PUBLIC_API_URL}/analyst/ask`,
+      `${API_URL}/analyst/ask`,
 
       {
 
@@ -693,14 +656,7 @@ async function askAI(customQuestion?: string) {
         headers: {
 
           "Content-Type": "application/json",
-
-          Authorization: `Bearer ${
-
-            localStorage.getItem("access_token") ?? ""
-
-          }`,
-
-        },
+},
 
         body: JSON.stringify({
 
@@ -825,34 +781,9 @@ async function askAI(customQuestion?: string) {
 
   }
 
-  if (authLoading) {
-
-    return (
-
-      <main className="min-h-screen bg-[#070b14] text-white">
-
-        <div className="flex min-h-screen items-center justify-center">
-
-          <div className="text-center">
-
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-400/20 border-t-blue-400" />
-
-            <p className="mt-4 text-sm text-slate-500">
-
-              Checking authentication...
-            </p>
-          </div>
-
-        </div>
-
-      </main>
-
-    );
-
-  }
 return (
 
-    <main className="min-h-screen bg-[#070b14] text-white">
+    <main className="min-h-screen bg-[#E7DCCE] text-[#291C0E]">
 
       {/* =====================================================
 
@@ -862,9 +793,9 @@ return (
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
 
-        <div className="absolute left-1/2 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-blue-600/10 blur-[140px]" />
+        <div className="absolute left-1/2 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-stone-800/10 blur-[140px]" />
 
-        <div className="absolute bottom-0 right-0 h-[350px] w-[350px] rounded-full bg-indigo-600/10 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-[350px] w-[350px] rounded-full bg-stone-700/10 blur-[120px]" />
 
       </div>
 
@@ -876,7 +807,7 @@ return (
 
         \===================================================== */}
 
-        <header className="mb-8 flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="mb-8 flex items-center justify-between border-b border-[#CDBBA9] pb-5">
 
           {/* BRAND */}
 
@@ -884,7 +815,7 @@ return (
 
             {/* Robot logo */}
 
-            <div className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/20 bg-gradient-to-br from-blue-500/20 to-indigo-500/10">
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-amber-800/20 bg-gradient-to-br from-amber-800/20 to-stone-700/10">
 
               <svg
 
@@ -1082,7 +1013,7 @@ return (
 
                 </h1>
 
-                <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-300">
+                <span className="rounded-full border border-amber-800/20 bg-amber-800/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-900">
 
                   AI Analyst
 
@@ -1090,7 +1021,7 @@ return (
 
               </div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#7F7165]">
 
                 Autonomous data intelligence
 
@@ -1126,7 +1057,7 @@ return (
 
                   onClick={clearChat}
 
-                  className="rounded-xl border border-white/10 px-3 py-2.5 text-xs text-slate-400 transition hover:border-white/20 hover:text-white"
+                  className="rounded-xl border border-[#CDBBA9] px-3 py-2.5 text-xs text-[#6E473B] transition hover:border-white/20 hover:text-[#291C0E]"
 
                 >
 
@@ -1142,7 +1073,7 @@ return (
 
                 onClick={removeDataset}
 
-                className="rounded-xl border border-white/10 px-3 py-2.5 text-xs text-slate-500 transition hover:border-red-400/20 hover:text-red-300"
+                className="rounded-xl border border-[#CDBBA9] px-3 py-2.5 text-xs text-[#7F7165] transition hover:border-red-400/20 hover:text-red-300"
 
               >
 
@@ -1184,7 +1115,7 @@ return (
 
               </h2>
 
-              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500 md:text-base">
+              <p className="mt-4 max-w-xl text-sm leading-6 text-[#7F7165] md:text-base">
 
                 Upload a CSV or Excel dataset and let DataPilot
 
@@ -1206,13 +1137,13 @@ return (
 
                 }
 
-                className="group mt-10 w-full max-w-xl rounded-2xl border border-dashed border-blue-400/30 bg-blue-500/[0.035] p-8 text-left transition duration-300 hover:-translate-y-1 hover:border-blue-400/60 hover:bg-blue-500/[0.06]"
+                className="group mt-10 w-full max-w-xl rounded-2xl border border-dashed border-amber-800/30 bg-amber-800/[0.035] p-8 text-left transition duration-300 hover:-translate-y-1 hover:border-amber-800/60 hover:bg-amber-800/[0.06]"
 
               >
 
                 <div className="flex flex-col items-center text-center">
 
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-800/20 bg-amber-800/10">
 
                     <svg
 
@@ -1230,7 +1161,7 @@ return (
 
                         d="M12 16V4"
 
-                        stroke="#60A5FA"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -1242,7 +1173,7 @@ return (
 
                         d="M7 9L12 4L17 9"
 
-                        stroke="#60A5FA"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -1256,7 +1187,7 @@ return (
 
                         d="M5 15V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V15"
 
-                        stroke="#93C5FD"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -1268,19 +1199,19 @@ return (
 
                   </div>
 
-                  <p className="text-base font-medium text-slate-200">
+                  <p className="text-base font-medium text-[#3E2B22]">
 
                     Upload your dataset
 
                   </p>
 
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-2 text-sm text-[#7F7165]">
 
                     Drag & drop or click to browse
 
                   </p>
 
-                  <p className="mt-4 text-[11px] text-slate-600">
+                  <p className="mt-4 text-[11px] text-[#8F8175]">
 
                     CSV, XLSX, XLS
 
@@ -1318,11 +1249,11 @@ return (
 
             <div className="flex flex-1 flex-col items-center justify-center">
 
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10">
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-amber-800/20 bg-amber-800/10">
 
-                <div className="absolute h-10 w-10 animate-ping rounded-full bg-blue-400/20" />
+                <div className="absolute h-10 w-10 animate-ping rounded-full bg-amber-800/20" />
 
-                <span className="relative h-6 w-6 animate-spin rounded-full border-2 border-blue-400/20 border-t-blue-400" />
+                <span className="relative h-6 w-6 animate-spin rounded-full border-2 border-amber-800/20 border-t-amber-800" />
 
               </div>
 
@@ -1332,7 +1263,7 @@ return (
 
               </h2>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-[#7F7165]">
 
                 Uploading and preparing your data for analysis.
 
@@ -1340,7 +1271,7 @@ return (
 
               {uploadedFile && (
 
-                <p className="mt-4 text-xs text-blue-400">
+                <p className="mt-4 text-xs text-amber-800">
 
                   {uploadedFile.name}
 
@@ -1392,11 +1323,11 @@ return (
 
                 </h2>
 
-                <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">
+                <p className="mt-4 max-w-xl text-sm leading-6 text-[#7F7165]">
 
                   Ask DataPilot questions about{" "}
 
-                  <span className="text-slate-300">
+                  <span className="text-[#4D3B31]">
 
                     {dataset}
 
@@ -1434,19 +1365,19 @@ return (
 
                       }
 
-                      className="group rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-blue-500/[0.06]"
+                      className="group rounded-2xl border border-[#CDBBA9] bg-[#F5EEE5] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-amber-800/30 hover:bg-amber-800/[0.06]"
 
                     >
 
                       <div className="mb-2 flex items-center justify-between">
 
-                        <span className="text-xs font-medium text-blue-400">
+                        <span className="text-xs font-medium text-amber-800">
 
                           ASK DATAPILOT
 
                         </span>
 
-                        <span className="text-slate-600 transition group-hover:translate-x-1 group-hover:text-blue-400">
+                        <span className="text-[#8F8175] transition group-hover:translate-x-1 group-hover:text-amber-800">
 
                           →
 
@@ -1454,7 +1385,7 @@ return (
 
                       </div>
 
-                      <p className="text-sm text-slate-300">
+                      <p className="text-sm text-[#4D3B31]">
 
                         {suggestion}
 
@@ -1500,15 +1431,15 @@ return (
 
     {message.role === "user" ? (
 
-      <div className="max-w-[85%] rounded-2xl rounded-br-md border border-blue-400/20 bg-blue-500/10 px-5 py-4">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md border border-amber-800/20 bg-amber-800/10 px-5 py-4">
 
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-800">
 
           You
 
         </p>
 
-        <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">
+        <p className="whitespace-pre-wrap text-sm leading-6 text-[#3E2B22]">
 
           {message.content}
 
@@ -1518,11 +1449,11 @@ return (
 
     ) : (
 
-      <div className="relative w-full overflow-hidden rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/[0.07] via-white/[0.025] to-indigo-500/[0.04] p-6 shadow-xl shadow-blue-950/10">
+      <div className="relative w-full overflow-hidden rounded-2xl border border-amber-800/15 bg-gradient-to-br from-amber-800/[0.07] via-white/[0.025] to-stone-700/[0.04] p-6 shadow-xl shadow-blue-950/10">
 
         {/* Glow */}
 
-        <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-amber-800/10 blur-3xl" />
 
         {/* Header */}
 
@@ -1532,7 +1463,7 @@ return (
 
             {/* Robot avatar */}
 
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-800/20 bg-amber-800/10">
 
               <svg
 
@@ -1648,7 +1579,7 @@ return (
 
               <div className="flex items-center gap-2">
 
-                <p className="text-sm font-semibold text-white">
+                <p className="text-sm font-semibold text-[#291C0E]">
 
                   DataPilot AI
 
@@ -1662,7 +1593,7 @@ return (
 
               </div>
 
-              <p className="mt-0.5 text-[10px] text-slate-500">
+              <p className="mt-0.5 text-[10px] text-[#7F7165]">
 
                 Dataset analysis
 
@@ -1680,7 +1611,7 @@ return (
 
             onClick={() => copyAnswer(message.content)}
 
-            className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] text-slate-500 transition hover:border-blue-400/20 hover:text-blue-400"
+            className="rounded-lg border border-[#CDBBA9] bg-[#F5EEE5] px-3 py-2 text-[10px] text-[#7F7165] transition hover:border-amber-800/20 hover:text-amber-800"
 
           >
 
@@ -1692,7 +1623,7 @@ return (
 
         {/* Divider */}
 
-        <div className="relative mb-6 h-px bg-gradient-to-r from-blue-400/20 via-white/10 to-transparent" />
+        <div className="relative mb-6 h-px bg-gradient-to-r from-amber-800/20 via-white/10 to-transparent" />
 
         {/* AI Insight */}
 
@@ -1716,19 +1647,19 @@ return (
 
             message.result?.y && (
 
-              <div className="mt-5 overflow-hidden rounded-xl border border-blue-400/10 bg-black/20 p-4">
+              <div className="mt-5 overflow-hidden rounded-xl border border-amber-800/10 bg-[#E7DCCE] p-4">
 
                 <div className="mb-4 flex items-center justify-between">
 
                   <div>
 
-                    <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">
 
                       Generated Visualization
 
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-[#7F7165]">
 
                       Generated by DataPilot Chart Tool
 
@@ -1736,7 +1667,7 @@ return (
 
                   </div>
 
-                  <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-medium uppercase tracking-wider text-blue-300">
+                  <span className="rounded-full border border-amber-800/20 bg-amber-800/10 px-2.5 py-1 text-[9px] font-medium uppercase tracking-wider text-amber-900">
 
                     {message.result.chart_type}
 
@@ -1766,7 +1697,7 @@ return (
 
         <div className="relative mt-5 flex items-center justify-between">
 
-          <div className="flex items-center gap-2 text-[10px] text-slate-600">
+          <div className="flex items-center gap-2 text-[10px] text-[#8F8175]">
 
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70" />
 
@@ -1774,7 +1705,7 @@ return (
 
           </div>
 
-          <span className="text-[10px] text-slate-700">
+          <span className="text-[10px] text-[#9B8B7D]">
 
             DataPilot
 
@@ -1798,27 +1729,27 @@ return (
 
               {loading && (
 
-                <div className="rounded-2xl border border-blue-400/10 bg-blue-500/[0.035] p-5">
+                <div className="rounded-2xl border border-amber-800/10 bg-amber-800/[0.035] p-5">
 
                   <div className="flex items-center gap-3">
 
-                    <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10">
+                    <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-amber-800/10">
 
-                      <div className="absolute h-3 w-3 animate-ping rounded-full bg-blue-400/40" />
+                      <div className="absolute h-3 w-3 animate-ping rounded-full bg-amber-800/40" />
 
-                      <div className="relative h-2.5 w-2.5 rounded-full bg-blue-400" />
+                      <div className="relative h-2.5 w-2.5 rounded-full bg-amber-800" />
 
                     </div>
 
                     <div>
 
-                      <p className="text-xs font-semibold text-slate-200">
+                      <p className="text-xs font-semibold text-[#3E2B22]">
 
                         DataPilot AI is thinking
 
                       </p>
 
-                      <p className="text-xs text-blue-400">
+                      <p className="text-xs text-amber-800">
 
                         {thinkingSteps[thinkingStep]}
 
@@ -1834,7 +1765,7 @@ return (
 
                     <div
 
-                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-700"
+                      className="h-full rounded-full bg-gradient-to-r from-amber-800 to-stone-600 transition-all duration-700"
 
                       style={{
 
@@ -1858,11 +1789,11 @@ return (
 
                   <div className="mt-4 flex gap-1.5">
 
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-amber-800 [animation-delay:-0.3s]" />
 
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-amber-800 [animation-delay:-0.15s]" />
 
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-amber-800" />
 
                   </div>
 
@@ -1900,7 +1831,7 @@ return (
 
             <div className="mx-auto mt-auto w-full max-w-4xl pb-3">
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-2 shadow-2xl shadow-black/20 transition focus-within:border-blue-400/30 focus-within:bg-white/[0.045]">
+              <div className="rounded-2xl border border-[#CDBBA9] bg-[#F1E7DB] p-2 shadow-2xl shadow-black/20 transition focus-within:border-amber-800/30 focus-within:bg-[#F1E7DB]">
 
                 <textarea
 
@@ -1920,13 +1851,13 @@ return (
 
                   rows={2}
 
-                  className="w-full resize-none bg-transparent px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 disabled:cursor-not-allowed"
+                  className="w-full resize-none bg-transparent px-4 py-3 text-sm text-[#291C0E] outline-none placeholder:text-[#8F8175] disabled:cursor-not-allowed"
 
                 />
 
                 <div className="flex items-center justify-between px-2 pb-1">
 
-                  <p className="hidden text-[10px] text-slate-600 sm:block">
+                  <p className="hidden text-[10px] text-[#8F8175] sm:block">
 
                     Press Enter to ask · Shift + Enter for a new line
 
@@ -1946,7 +1877,7 @@ return (
 
                     }
 
-                    className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-lg transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl bg-stone-800 text-lg transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-30"
 
                     aria-label="Ask DataPilot"
 
@@ -1968,7 +1899,7 @@ return (
 
               </div>
 
-              <p className="mt-3 text-center text-[10px] text-slate-700">
+              <p className="mt-3 text-center text-[10px] text-[#9B8B7D]">
 
                 DataPilot AI can make mistakes. Verify important
 
@@ -2000,7 +1931,7 @@ return (
 
                 }
 
-                className="text-xs text-slate-600 transition hover:text-blue-400"
+                className="text-xs text-[#8F8175] transition hover:text-amber-800"
 
               >
 

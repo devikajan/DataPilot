@@ -1,11 +1,10 @@
 
 import json
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.auth.dependencies import get_current_user
-from app.api.datasets import verify_dataset_ownership, read_dataset
+from app.api.datasets import read_dataset
 from app.services.ai_agent import ask_agent
 from app.services.analytics_engine import generate_insights
 from app.services.dataset_storage import get_dataset_path
@@ -23,16 +22,8 @@ class AnalystRequest(BaseModel):
 
 
 @router.post("/ask")
-def ask_analyst(
-    request: AnalystRequest,
-    current_user: dict = Depends(get_current_user),
-):
+def ask_analyst(request: AnalystRequest):
     try:
-        verify_dataset_ownership(
-            request.dataset,
-            current_user["id"],
-        )
-
         dataset_path = get_dataset_path(request.dataset)
 
         if not dataset_path.exists():
@@ -41,7 +32,7 @@ def ask_analyst(
                 detail="Dataset file not found",
             )
 
-        # Use the shared reader so special CSV headers are normalized.
+        # Read the dataset using the shared reader.
         df = read_dataset(
             dataset_path,
             request.dataset,
@@ -71,8 +62,8 @@ def ask_analyst(
     except HTTPException:
         raise
 
-    except Exception as error:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail="Failed to analyze the dataset.",
         )

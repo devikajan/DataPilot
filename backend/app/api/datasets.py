@@ -3,9 +3,8 @@ from pathlib import Path
 from io import BytesIO
 
 import pandas as pd
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException
 
-from app.auth.dependencies import get_current_user
 from app.database import get_connection
 from app.services.dataset_profiler import profile_dataset
 from app.services.analytics_engine import generate_insights
@@ -19,6 +18,29 @@ router = APIRouter(
 
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 RESERVOIR_FILENAME = "reservoir summary.csv"
+
+
+def _validate_filename(filename: str) -> str:
+    """Reject unsafe filenames and unsupported file extensions."""
+    filename = filename.replace("\\", "/")
+
+    if (
+        not filename
+        or Path(filename).name != filename
+        or filename in {".", ".."}
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid dataset filename",
+        )
+
+    if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV and Excel files are supported",
+        )
+
+    return filename
 
 
 def read_dataset(source, filename: str) -> pd.DataFrame:
@@ -57,7 +79,8 @@ def _database_settings(connection):
     )
 
 
-def verify_dataset_ownership(filename: str, user_id: int):
+def _get_dataset_metadata(filename: str):
+    """Retrieve dataset metadata without user authentication."""
     connection = get_connection()
     cursor = connection.cursor()
     placeholder, table_name = _database_settings(connection)
@@ -68,20 +91,19 @@ def verify_dataset_ownership(filename: str, user_id: int):
             SELECT id
             FROM {table_name}
             WHERE filename = {placeholder}
-              AND user_id = {placeholder}
             """,
-            (filename, user_id),
+            (filename,),
         )
 
-        dataset = cursor.fetchone()
+        row = cursor.fetchone()
 
-        if not dataset:
+        if not row:
             raise HTTPException(
                 status_code=404,
                 detail="Dataset not found",
             )
 
-        return dataset[0]
+        return row[0]
 
     finally:
         cursor.close()
@@ -89,12 +111,11 @@ def verify_dataset_ownership(filename: str, user_id: int):
 
 
 @router.get("/")
-async def list_datasets(
-    current_user: dict = Depends(get_current_user),
-):
+async def list_datasets():
+    """List all uploaded datasets."""
     connection = get_connection()
     cursor = connection.cursor()
-    placeholder, table_name = _database_settings(connection)
+    _, table_name = _database_settings(connection)
 
     try:
         cursor.execute(
@@ -107,10 +128,8 @@ async def list_datasets(
                 column_count,
                 uploaded_at
             FROM {table_name}
-            WHERE user_id = {placeholder}
             ORDER BY uploaded_at DESC
-            """,
-            (current_user["id"],),
+            """
         )
 
         rows = cursor.fetchall()
@@ -125,7 +144,9 @@ async def list_datasets(
                 "file_type": row[2],
                 "row_count": row[3],
                 "column_count": row[4],
-                "uploaded_at": row[5].isoformat() if row[5] else None,
+                "uploaded_at": (
+                    row[5].isoformat() if row[5] else None
+                ),
                 "size_bytes": (
                     dataset_path.stat().st_size
                     if dataset_path.exists()
@@ -141,24 +162,34 @@ async def list_datasets(
 
 
 @router.get("/{filename}/data")
-async def get_dataset_data(
-    filename: str,
-    current_user: dict = Depends(get_current_user),
-):
-    verify_dataset_ownership(filename, current_user["id"])
+async def get_dataset_data(filename: str):
+    """Return dataset rows without authentication."""
+    filename = _validate_filename(filename)
+    _get_dataset_metadata(filename)
+
     dataset_path = get_dataset_path(filename)
 
     if not dataset_path.exists():
-        raise HTTPException(status_code=404, detail="Dataset file not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset file not found",
+        )
 
     try:
         df = read_dataset(dataset_path, filename)
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not read dataset")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not read dataset",
+        )
 
-    rows = df.astype(object).where(pd.notnull(df), None).to_dict(orient="records")
+    rows = (
+        df.astype(object)
+        .where(pd.notnull(df), None)
+        .to_dict(orient="records")
+    )
 
     return {
         "filename": filename,
@@ -168,15 +199,18 @@ async def get_dataset_data(
 
 
 @router.get("/{filename}")
-async def get_dataset(
-    filename: str,
-    current_user: dict = Depends(get_current_user),
-):
-    verify_dataset_ownership(filename, current_user["id"])
+async def get_dataset(filename: str):
+    """Return dataset profiling and preview."""
+    filename = _validate_filename(filename)
+    _get_dataset_metadata(filename)
+
     dataset_path = get_dataset_path(filename)
 
     if not dataset_path.exists():
-        raise HTTPException(status_code=404, detail="Dataset file not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset file not found",
+        )
 
     try:
         df = read_dataset(dataset_path, filename)
@@ -184,7 +218,10 @@ async def get_dataset(
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not read dataset")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not read dataset",
+        )
 
     preview = df.head(10).fillna("").to_dict(orient="records")
 
@@ -196,26 +233,28 @@ async def get_dataset(
 
 
 @router.post("/upload")
-async def upload_dataset(
-    file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
-):
+async def upload_dataset(file: UploadFile = File(...)):
+    """Upload, profile, and register a dataset without authentication."""
     if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
-
-    filename = Path(file.filename.replace("\\", "/")).name
-    extension = Path(filename).suffix.lower()
-
-    if not filename or extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Only CSV and Excel files are supported",
+            detail="No file provided",
         )
+
+    filename = Path(
+        file.filename.replace("\\", "/")
+    ).name
+
+    filename = _validate_filename(filename)
+    extension = Path(filename).suffix.lower()
 
     contents = await file.read()
 
     if not contents:
-        raise HTTPException(status_code=400, detail="The uploaded file is empty")
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty",
+        )
 
     try:
         df = read_dataset(BytesIO(contents), filename)
@@ -227,6 +266,8 @@ async def upload_dataset(
             status_code=400,
             detail="Could not read uploaded dataset",
         )
+    finally:
+        await file.close()
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -239,9 +280,8 @@ async def upload_dataset(
             SELECT id
             FROM {table_name}
             WHERE filename = {placeholder}
-              AND user_id = {placeholder}
             """,
-            (filename, current_user["id"]),
+            (filename,),
         )
 
         if cursor.fetchone():
@@ -252,19 +292,23 @@ async def upload_dataset(
 
         stored_path = save_dataset(contents, filename)
 
+        # Authentication is disabled: no user_id is inserted.
         cursor.execute(
             f"""
             INSERT INTO {table_name} (
-                user_id,
                 filename,
                 file_type,
                 row_count,
                 column_count
             )
-            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+            VALUES (
+                {placeholder},
+                {placeholder},
+                {placeholder},
+                {placeholder}
+            )
             """,
             (
-                current_user["id"],
                 filename,
                 extension.lstrip(".").upper(),
                 len(df),
@@ -276,11 +320,18 @@ async def upload_dataset(
 
     except HTTPException:
         connection.rollback()
+
+        if stored_path:
+            try:
+                Path(stored_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+
         raise
+
     except Exception:
         connection.rollback()
 
-        # Avoid leaving an uploaded file behind if metadata insertion fails.
         if stored_path:
             try:
                 Path(stored_path).unlink(missing_ok=True)
@@ -289,8 +340,9 @@ async def upload_dataset(
 
         raise HTTPException(
             status_code=500,
-            detail="Could not save dataset metadata",
+            detail="Could not save dataset metadata. Check your database schema.",
         )
+
     finally:
         cursor.close()
         connection.close()
@@ -300,22 +352,25 @@ async def upload_dataset(
     return {
         "filename": filename,
         "message": "Dataset uploaded successfully",
-        "stored_path": stored_path,
+        "stored_path": str(stored_path) if stored_path else None,
         "profile": profile,
         "preview": preview,
     }
 
 
 @router.post("/analyze/{filename}")
-async def analyze_dataset(
-    filename: str,
-    current_user: dict = Depends(get_current_user),
-):
-    verify_dataset_ownership(filename, current_user["id"])
+async def analyze_dataset(filename: str):
+    """Generate insights for a stored dataset without authentication."""
+    filename = _validate_filename(filename)
+    _get_dataset_metadata(filename)
+
     dataset_path = get_dataset_path(filename)
 
     if not dataset_path.exists():
-        raise HTTPException(status_code=404, detail="Dataset file not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset file not found",
+        )
 
     try:
         df = read_dataset(dataset_path, filename)
@@ -329,7 +384,12 @@ async def analyze_dataset(
 
     try:
         analysis = generate_insights(df)
-        return {"filename": filename, "analysis": analysis}
+
+        return {
+            "filename": filename,
+            "analysis": analysis,
+        }
+
     except Exception:
         raise HTTPException(
             status_code=500,
