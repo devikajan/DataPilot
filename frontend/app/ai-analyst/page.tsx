@@ -1,7 +1,6 @@
 "use client";
  
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toCanvas } from "html-to-image";
 import jsPDF from "jspdf";
 import AutoChart from "@/components/AutoChart";
 import {
@@ -884,57 +883,137 @@ Present the process as 4 to 8 concise, ordered steps. Make decision points expli
 
   \========================================================= */
   async function exportChatPdf() {
-    const exportElement = chatExportRef.current;
-    if (!exportElement || messages.length === 0 || exportingPdf) return;
+    if (exportingPdf || messages.length === 0) {
+      if (!messages.length) setError("Ask DataPilot a question before exporting.");
+      return;
+    }
 
     setExportingPdf(true);
     setError("");
 
     try {
-      const fullCanvas = await toCanvas(exportElement, {
-        pixelRatio: 2,
-        backgroundColor: "#E7DCCE",
-        cacheBust: true,
-        skipFonts: false,
+      // Export from message data, not a screenshot of the page.
+      // This avoids browser failures when capturing React Flow, SVGs and charts.
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const width = pdf.internal.pageSize.getWidth();
+      const height = pdf.internal.pageSize.getHeight();
+      const left = 18;
+      const right = 18;
+      const bottom = 18;
+      const textWidth = width - left - right;
+      let y = 48;
+
+      const nextPage = () => {
+        pdf.addPage();
+        y = 20;
+      };
+
+      const space = (needed: number) => {
+        if (y + needed > height - bottom) nextPage();
+      };
+
+      const write = (
+        value: unknown,
+        fontSize = 10,
+        bold = false,
+        gap = 3
+      ) => {
+        const content = String(value ?? "")
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/`([^`]+)`/g, "$1")
+          .replace(/[•●▪]/g, "-")
+          .replace(/[→➜]/g, "->")
+          // Standard jsPDF Helvetica does not include full Unicode.
+          .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, " ");
+
+        pdf.setFont("helvetica", bold ? "bold" : "normal");
+        pdf.setFontSize(fontSize);
+        pdf.setTextColor(57, 42, 34);
+
+        const lineHeight = fontSize * 0.45;
+        for (const paragraph of content.split(/\r?\n/)) {
+          const lines: string[] = pdf.splitTextToSize(
+            paragraph || " ",
+            textWidth
+          );
+          for (const line of lines) {
+            space(lineHeight);
+            pdf.text(line, left, y);
+            y += lineHeight;
+          }
+        }
+        space(gap);
+        y += gap;
+      };
+
+      // Report header
+      pdf.setFillColor(110, 71, 59);
+      pdf.rect(0, 0, width, 37, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(19);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text("DataPilot AI Analysis", left, 16);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      const cleanDataset = String(dataset || "Not specified")
+        .replace(/[^\x20-\x7E]/g, " ");
+      pdf.text(`Dataset: ${cleanDataset.slice(0, 85)}`, left, 25);
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, left, 31);
+
+      messages.forEach((message, index) => {
+        space(12);
+        write(
+          `${index + 1}. ${message.role === "user" ? "Your question" : "DataPilot AI response"}`,
+          12,
+          true,
+          2
+        );
+        write(message.content, 10, false, 5);
+
+        if (
+          message.role === "assistant" &&
+          message.tool === "generate_chart" &&
+          message.result
+        ) {
+          const chart = message.result;
+          write(`Chart: ${chart.chart_type ?? "Visualization"}`, 10, true, 1);
+          if (chart.x || chart.y) {
+            write(`X-axis: ${chart.x ?? "-"} | Y-axis: ${chart.y ?? "-"}`, 9);
+          }
+          if (Array.isArray(chart.data)) {
+            write("Chart data (first 20 rows):", 9, true, 1);
+            chart.data.slice(0, 20).forEach((row: unknown) => {
+              write(JSON.stringify(row), 8, false, 1);
+            });
+          }
+        }
+        // Flowchart text is already present in the AI response above.
       });
 
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const margin = 10;
-      const pageWidth = 210 - margin * 2;
-      const pageHeight = 297 - margin * 2;
-      const sourceSliceHeight = Math.max(1, Math.floor((pageHeight / pageWidth) * fullCanvas.width));
-      let sourceY = 0;
-      let pageIndex = 0;
-
-      while (sourceY < fullCanvas.height) {
-        const sliceHeight = Math.min(sourceSliceHeight, fullCanvas.height - sourceY);
-        const pageCanvas = document.createElement("canvas");
-        pageCanvas.width = fullCanvas.width;
-        pageCanvas.height = sliceHeight;
-        const context = pageCanvas.getContext("2d");
-        if (!context) throw new Error("Could not prepare the PDF page image.");
-
-        context.fillStyle = "#E7DCCE";
-        context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        context.drawImage(
-          fullCanvas,
-          0, sourceY, fullCanvas.width, sliceHeight,
-          0, 0, fullCanvas.width, sliceHeight
+      const totalPages = pdf.getNumberOfPages();
+      for (let page = 1; page <= totalPages; page++) {
+        pdf.setPage(page);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(130, 115, 100);
+        pdf.text(
+          `DataPilot | Page ${page} of ${totalPages}`,
+          width / 2,
+          height - 8,
+          { align: "center" }
         );
-
-        if (pageIndex > 0) pdf.addPage();
-        const renderedHeight = (sliceHeight / fullCanvas.width) * pageWidth;
-        pdf.addImage(pageCanvas.toDataURL("image/png"), "PNG", margin, margin, pageWidth, renderedHeight);
-
-        sourceY += sliceHeight;
-        pageIndex += 1;
       }
 
-      const safeDatasetName = (dataset || "dataset").replace(/[^a-z0-9_-]+/gi, "_");
-      pdf.save(`DataPilot_AI_Analysis_${safeDatasetName}.pdf`);
+      const safeName = (dataset || "analysis")
+        .replace(/\.[^.]+$/, "")
+        .replace(/[^a-zA-Z0-9_-]/g, "_")
+        .slice(0, 60);
+      pdf.save(`DataPilot_AI_Analysis_${safeName}.pdf`);
     } catch (err) {
       console.error("PDF export failed:", err);
-      setError(err instanceof Error ? `PDF export failed: ${err.message}` : "PDF export failed. Please try again.");
+      setError(
+        `PDF export failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       setExportingPdf(false);
     }
@@ -1345,7 +1424,7 @@ return (
 
                         d="M12 16V4"
 
-                        stroke="#60A5FA"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -1357,7 +1436,7 @@ return (
 
                         d="M7 9L12 4L17 9"
 
-                        stroke="#60A5FA"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -1371,7 +1450,7 @@ return (
 
                         d="M5 15V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V15"
 
-                        stroke="#93C5FD"
+                        stroke="#8B5E3C"
 
                         strokeWidth="1.8"
 
@@ -2050,35 +2129,26 @@ return (
                   </p>
 
                   <button
-
                     type="button"
-
                     onClick={() => askAI()}
-
-                    disabled={
-
-                      loading ||
-
-                      !question.trim()
-
-                    }
-
-                    className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl bg-stone-800 text-lg transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-30"
-
-                    aria-label="Ask DataPilot"
-
+                    disabled={loading || !question.trim()}
+                    className="ml-auto flex h-11 min-w-[112px] items-center justify-center gap-2 rounded-xl bg-[#6E473B] px-5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-[#54352C] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Send message"
                   >
-
                     {loading ? (
-
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        <span>Sending</span>
+                      </>
                     ) : (
-
-                      "↑"
-
+                      <>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>Send</span>
+                      </>
                     )}
-
                   </button>
 
                 </div>
