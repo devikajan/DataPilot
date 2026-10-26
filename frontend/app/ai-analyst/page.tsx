@@ -1,9 +1,16 @@
 "use client";
  
-import { useEffect, useRef, useState } from "react";
-
-
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toCanvas } from "html-to-image";
+import jsPDF from "jspdf";
 import AutoChart from "@/components/AutoChart";
+import {
+  Background,
+  Controls,
+  MarkerType,
+  ReactFlow,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com").replace(/\/$/, "");
 
@@ -16,6 +23,8 @@ type Message = {
   tool?: string;
 
   result?: any;
+
+  flowchart?: boolean;
 
 };
 
@@ -443,9 +452,104 @@ const parseTableRow = (line: string) =>
 
 }
 
+function FlowchartView({ content }: { content: string }) {
+  const steps = useMemo(() => {
+    const lines = content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    let candidates = lines
+      .filter((line) => /^(?:\d+[.)]|[-*•])\s+/.test(line))
+      .map((line) => line.replace(/^(?:\d+[.)]|[-*•])\s+/, ""));
+
+    if (candidates.length < 2) {
+      candidates = content
+        .replace(/\*\*/g, "")
+        .split(/(?<=[.!?])\s+/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 12)
+        .slice(0, 7);
+    }
+
+    candidates = candidates
+      .map((step) => step.replace(/^#+\s*/, "").replace(/\*\*/g, "").trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    return candidates.length ? candidates : [content.trim().slice(0, 180) || "Review the process"];
+  }, [content]);
+
+  const nodes = useMemo(
+    () =>
+      steps.map((step, index) => ({
+        id: `step-${index}`,
+        position: { x: 80, y: index * 105 },
+        data: { label: `${index + 1}. ${step}` },
+        style: {
+          width: 270,
+          minHeight: 62,
+          padding: 12,
+          borderRadius: 12,
+          border: "1px solid #A99A8C",
+          background: index === steps.length - 1 ? "#6E473B" : "#F5EEE5",
+          color: index === steps.length - 1 ? "#FFFFFF" : "#291C0E",
+          fontSize: 12,
+          lineHeight: 1.5,
+          boxShadow: "0 4px 14px rgba(41, 28, 14, 0.08)",
+        },
+      })),
+    [steps]
+  );
+
+  const edges = useMemo(
+    () =>
+      steps.slice(0, -1).map((_, index) => ({
+        id: `edge-${index}`,
+        source: `step-${index}`,
+        target: `step-${index + 1}`,
+        type: "smoothstep",
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#6E473B" },
+        style: { stroke: "#6E473B", strokeWidth: 1.7 },
+      })),
+    [steps]
+  );
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-xl border border-[#CDBBA9] bg-[#E7DCCE]">
+      <div className="border-b border-[#CDBBA9] px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6E473B]">
+          AI-generated process flowchart
+        </p>
+        <p className="mt-1 text-[11px] text-[#7F7165]">
+          Use the controls to zoom or fit the diagram.
+        </p>
+      </div>
+      <div className="h-[430px] w-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          nodesDraggable
+          nodesConnectable={false}
+          elementsSelectable
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="#CDBBA9" gap={20} />
+          <Controls />
+        </ReactFlow>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalystPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const chatExportRef = useRef<HTMLDivElement | null>(null);
 
   const [dataset, setDataset] = useState("");
 
@@ -464,6 +568,8 @@ export default function AnalystPage() {
   const [error, setError] = useState("");
 
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  const [exportingPdf, setExportingPdf] = useState(false);
 
 
   const thinkingSteps = [
@@ -624,6 +730,14 @@ async function askAI(customQuestion?: string) {
 
   setQuestion("");
 
+  const wantsFlowchart = /flow\s*chart|workflow diagram|process diagram/i.test(finalQuestion);
+
+  const questionForAI = wantsFlowchart
+    ? `${finalQuestion}
+
+Present the process as 4 to 8 concise, ordered steps. Make decision points explicit and keep each step short so it can be shown in a flowchart.`
+    : finalQuestion;
+
   setThinkingStep(0);
   setLoading(true);
 
@@ -662,7 +776,7 @@ async function askAI(customQuestion?: string) {
 
           dataset,
 
-          question: finalQuestion,
+          question: questionForAI,
 
         }),
 
@@ -697,6 +811,8 @@ async function askAI(customQuestion?: string) {
         tool: result.tool,
 
         result: result.result,
+
+        flowchart: wantsFlowchart,
 
       },
 
@@ -767,6 +883,63 @@ async function askAI(customQuestion?: string) {
      COPY ANSWER
 
   \========================================================= */
+  async function exportChatPdf() {
+    const exportElement = chatExportRef.current;
+    if (!exportElement || messages.length === 0 || exportingPdf) return;
+
+    setExportingPdf(true);
+    setError("");
+
+    try {
+      const fullCanvas = await toCanvas(exportElement, {
+        pixelRatio: 2,
+        backgroundColor: "#E7DCCE",
+        cacheBust: true,
+        skipFonts: false,
+      });
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const margin = 10;
+      const pageWidth = 210 - margin * 2;
+      const pageHeight = 297 - margin * 2;
+      const sourceSliceHeight = Math.max(1, Math.floor((pageHeight / pageWidth) * fullCanvas.width));
+      let sourceY = 0;
+      let pageIndex = 0;
+
+      while (sourceY < fullCanvas.height) {
+        const sliceHeight = Math.min(sourceSliceHeight, fullCanvas.height - sourceY);
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = fullCanvas.width;
+        pageCanvas.height = sliceHeight;
+        const context = pageCanvas.getContext("2d");
+        if (!context) throw new Error("Could not prepare the PDF page image.");
+
+        context.fillStyle = "#E7DCCE";
+        context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        context.drawImage(
+          fullCanvas,
+          0, sourceY, fullCanvas.width, sliceHeight,
+          0, 0, fullCanvas.width, sliceHeight
+        );
+
+        if (pageIndex > 0) pdf.addPage();
+        const renderedHeight = (sliceHeight / fullCanvas.width) * pageWidth;
+        pdf.addImage(pageCanvas.toDataURL("image/png"), "PNG", margin, margin, pageWidth, renderedHeight);
+
+        sourceY += sliceHeight;
+        pageIndex += 1;
+      }
+
+      const safeDatasetName = (dataset || "dataset").replace(/[^a-z0-9_-]+/gi, "_");
+      pdf.save(`DataPilot_AI_Analysis_${safeDatasetName}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      setError(err instanceof Error ? `PDF export failed: ${err.message}` : "PDF export failed. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
   async function copyAnswer(content: string) {
 
     try {
@@ -1050,6 +1223,17 @@ return (
               </div>
 
               {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={exportChatPdf}
+                  disabled={exportingPdf}
+                  className="rounded-xl border border-amber-800/25 bg-amber-800/10 px-3 py-2.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-800/15 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {exportingPdf ? "Preparing PDF…" : "Export PDF"}
+                </button>
+              )}
+
+              {messages.length > 0 && (
 
                 <button
 
@@ -1161,7 +1345,7 @@ return (
 
                         d="M12 16V4"
 
-                        stroke="#8B5E3C"
+                        stroke="#60A5FA"
 
                         strokeWidth="1.8"
 
@@ -1173,7 +1357,7 @@ return (
 
                         d="M7 9L12 4L17 9"
 
-                        stroke="#8B5E3C"
+                        stroke="#60A5FA"
 
                         strokeWidth="1.8"
 
@@ -1187,7 +1371,7 @@ return (
 
                         d="M5 15V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V15"
 
-                        stroke="#8B5E3C"
+                        stroke="#93C5FD"
 
                         strokeWidth="1.8"
 
@@ -1409,7 +1593,7 @@ return (
 
           {messages.length > 0 && (
 
-            <div className="mx-auto w-full max-w-4xl space-y-6 py-8">
+            <div ref={chatExportRef} className="mx-auto w-full max-w-4xl space-y-6 py-8">
 
 {messages.map((message, index) => (
 
@@ -1690,6 +1874,8 @@ return (
               </div>
 
             )}
+
+          {message.flowchart && <FlowchartView content={message.content} />}
 
         </div>
 
