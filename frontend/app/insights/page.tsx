@@ -13,8 +13,6 @@ import CorrelationHeatmap from "@/components/CorrelationHeatmap";
 
 import TimeSeriesChart from "@/components/TimeSeriesChart";
 
-import AutoChart from "@/components/AutoChart";
-
 import ChartToolRenderer from "@/components/ChartToolRenderer";
 
 
@@ -60,162 +58,97 @@ function InsightsContent() {
 
 
 
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com")
+    .trim()
+    .replace(/^http:\/\/https:\/\//i, "https://")
+    .replace(/\/+$/, "");
+
   useEffect(() => {
-
-  const loadDataset = async () => {
-
-    if (!filename) {
-
-      setError("No dataset selected.");
-
-      setLoading(false);
-
-      return;
-
-    }
-
-
-
-    try {
-
-      setLoading(true);
-
-      setError("");
-
-
-
-
-
-      const datasetResponse = await fetch(
-
-        `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/${encodeURIComponent(filename)}`,
-
-        {
-
-
-        }
-
-      );
-
-
-
-const datasetData = await datasetResponse.json();
-
-
-
-if (!datasetResponse.ok) {
-
-  throw new Error(
-
-    datasetData.detail || "Could not load dataset."
-
-  );
-
-}
-
-
-
-const analysisResponse = await fetch(
-
-  `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/analyze/${encodeURIComponent(filename)}`,
-
-  {
-
-    method: "POST",
-
-
-  }
-
-);
-
-
-
-const analysisData = await analysisResponse.json();
-
-
-
-if (!analysisResponse.ok) {
-
-  throw new Error(
-
-    analysisData.detail || "Could not analyze dataset."
-
-  );
-
-}
-
-
-
-setDataset({
-
-  ...datasetData,
-
-  analysis: analysisData.analysis,
-
-});
-
-const rowsResponse = await fetch(
-
-  `${process.env.NEXT_PUBLIC_API_URL || "https://datapilot-api-sgvj.onrender.com"}/datasets/${encodeURIComponent(filename)}/data`,
-
-  {
-
-
-  }
-
-);
-
-
-
-const rowsData = await rowsResponse.json();
-
-
-
-if (!rowsResponse.ok) {
-
-  throw new Error(
-
-    rowsData.detail || "Could not load dataset rows."
-
-  );
-
-}
-
-
-
-setChartData(rowsData.data ?? []);
-
-      } catch (err) {
-
-        console.error(err);
-
-
-
-        setError(
-
-          err instanceof Error
-
-            ? err.message
-
-            : "Could not load dataset."
-
-        );
-
-      } finally {
-
-        setLoading(false);
-
+    let cancelled = false;
+
+    const readJson = async (response: Response, endpoint: string) => {
+      const raw = await response.text();
+      let payload: any = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = { detail: raw || `The server returned an invalid response for ${endpoint}.` };
       }
 
+      if (!response.ok) {
+        const detail = typeof payload.detail === "string"
+          ? payload.detail
+          : JSON.stringify(payload.detail ?? payload);
+        throw new Error(`${response.status} ${response.statusText} — ${detail || `Request failed: ${endpoint}`}`);
+      }
+      return payload;
     };
 
+    const loadDataset = async () => {
+      if (!filename?.trim()) {
+        setError("No dataset was selected. Return to Datasets and open Insights for a dataset.");
+        setLoading(false);
+        setDataset(null);
+        return;
+      }
 
+      setLoading(true);
+      setError("");
 
-    loadDataset();
+      try {
+        const safeFilename = encodeURIComponent(filename.trim());
+        const profileEndpoint = `/datasets/${safeFilename}`;
+        const analysisEndpoint = `/datasets/analyze/${safeFilename}`;
+        const rowsEndpoint = `/datasets/${safeFilename}/data`;
 
-  }, [filename]);
+        const profileResponse = await fetch(`${API_BASE}${profileEndpoint}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        const datasetData = await readJson(profileResponse, profileEndpoint);
 
+        if (!datasetData || !datasetData.profile) {
+          throw new Error("The API response did not include a dataset profile. Check the backend GET /datasets/{filename} response.");
+        }
 
+        const analysisResponse = await fetch(`${API_BASE}${analysisEndpoint}`, {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        const analysisData = await readJson(analysisResponse, analysisEndpoint);
+
+        const rowsResponse = await fetch(`${API_BASE}${rowsEndpoint}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        const rowsData = await readJson(rowsResponse, rowsEndpoint);
+
+        if (cancelled) return;
+        setDataset({
+          ...datasetData,
+          filename: datasetData.filename || filename,
+          analysis: analysisData.analysis ?? analysisData,
+        });
+        setChartData(Array.isArray(rowsData.data) ? rowsData.data : []);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Insights page failed to load:", err);
+        setDataset(null);
+        setChartData([]);
+        setError(err instanceof Error ? err.message : "Could not load dataset insights.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadDataset();
+    return () => {
+      cancelled = true;
+    };
+  }, [filename, API_BASE]);
 
   if (loading) {
 
@@ -317,7 +250,18 @@ setChartData(rowsData.data ?? []);
 
 
 
-  const { profile } = dataset;
+  const profile = dataset?.profile;
+
+  if (!profile) {
+    return (
+      <main className="insights-theme min-h-screen bg-[#E7DCCE] px-6 py-10 text-[#291C0E] md:px-10">
+        <div className="mx-auto max-w-7xl rounded-2xl border border-[#A99A8C]/50 bg-[#F7F1E8] p-8">
+          <h1 className="text-2xl font-bold">Insights unavailable</h1>
+          <p className="mt-3 text-sm text-[#6E473B]">The dataset profile was empty or returned in an unexpected format. {error}</p>
+        </div>
+      </main>
+    );
+  }
 
 
 
@@ -2773,7 +2717,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-          {profile.quality.status === "good" ? (
+          {(profile.quality?.status ?? "unknown") === "good" ? (
 
 
 
@@ -2805,7 +2749,7 @@ const executiveSummary = analysisInsights.find(
 
 
 
-              {profile.quality.warnings.map(
+              {(Array.isArray(profile.quality?.warnings) ? profile.quality.warnings : []).map(
 
                 (warning: any, index: number) => (
 
