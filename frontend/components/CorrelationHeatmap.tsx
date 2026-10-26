@@ -1,13 +1,18 @@
+
 "use client";
 
 import dynamic from "next/dynamic";
 
-const Plot = dynamic(
-  () => import("react-plotly.js"),
-  {
-    ssr: false,
-  }
-);
+const Plot = dynamic(() => import("react-plotly.js"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[400px] items-center justify-center">
+      <p className="text-sm text-[#6E473B]">
+        Loading correlation heatmap...
+      </p>
+    </div>
+  ),
+});
 
 type CorrelationHeatmapProps = {
   data: Record<string, Record<string, number | null>>;
@@ -16,7 +21,20 @@ type CorrelationHeatmapProps = {
 export default function CorrelationHeatmap({
   data,
 }: CorrelationHeatmapProps) {
-  const columns = Object.keys(data);
+  const columns = Object.keys(data ?? {});
+
+  if (columns.length === 0) {
+    return (
+      <div className="mt-6 rounded-xl border border-[#A99A8C]/40 bg-[#CDBBA9]/20 p-8 text-center">
+        <p className="text-sm font-medium text-[#291C0E]">
+          No correlation data available
+        </p>
+        <p className="mt-2 text-sm text-[#6E473B]">
+          Correlation analysis requires numeric columns with valid data.
+        </p>
+      </div>
+    );
+  }
 
   const z = columns.map((column) =>
     columns.map((otherColumn) => {
@@ -24,12 +42,22 @@ export default function CorrelationHeatmap({
         return 1;
       }
 
-      return data[column]?.[otherColumn] ?? 0;
+      const value = data[column]?.[otherColumn];
+
+      // Keep missing correlations distinct from a true zero.
+      return typeof value === "number" && Number.isFinite(value)
+        ? value
+        : null;
     })
   );
 
+  const chartHeight = Math.min(
+    900,
+    Math.max(400, columns.length * 38)
+  );
+
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] p-2">
+    <div className="mt-6 overflow-hidden rounded-xl border border-[#A99A8C]/40 bg-[#F7F1E8] p-2 sm:p-4">
       <Plot
         data={[
           {
@@ -37,139 +65,97 @@ export default function CorrelationHeatmap({
             x: columns,
             y: columns,
             type: "heatmap",
-
-            /*
-             * DataPilot dark UI correlation scale:
-             *
-             * Strong negative → blue
-             * Neutral         → dark navy
-             * Strong positive → purple
-             */
             colorscale: [
-              [0, "#1d4ed8"],
-              [0.2, "#2563eb"],
-              [0.4, "#1e3a8a"],
-              [0.5, "#0f172a"],
-              [0.6, "#312e81"],
-              [0.8, "#6366f1"],
-              [1, "#8b5cf6"],
+              [0, "#8B5144"],
+              [0.25, "#CDBBA9"],
+              [0.5, "#F7F1E8"],
+              [0.75, "#A77B66"],
+              [1, "#6E473B"],
             ],
-
             zmin: -1,
             zmax: 1,
-
+            zmid: 0,
+            xgap: 2,
+            ygap: 2,
+            hoverongaps: false,
             hovertemplate:
               "%{y} × %{x}<br>" +
               "Correlation: %{z:.2f}" +
               "<extra></extra>",
-
             colorbar: {
               title: {
                 text: "Correlation",
                 font: {
-                  color: "#ffffff",
+                  color: "#291C0E",
                   size: 12,
                 },
               },
-
               tickfont: {
-                color: "rgba(255,255,255,0.65)",
+                color: "#6E473B",
                 size: 11,
               },
-
               tickvals: [-1, -0.5, 0, 0.5, 1],
-
-              ticktext: [
-                "-1.0",
-                "-0.5",
-                "0",
-                "0.5",
-                "1.0",
-              ],
-
+              ticktext: ["-1.0", "-0.5", "0", "0.5", "1.0"],
               thickness: 12,
-
               len: 0.8,
-
-              outlinecolor: "rgba(255,255,255,0.08)",
+              outlinecolor: "#A99A8C",
               outlinewidth: 1,
             },
-
-            xgap: 2,
-            ygap: 2,
           },
         ]}
         layout={{
           autosize: true,
-
-          height: Math.max(
-            450,
-            columns.length * 35
-          ),
-
+          height: chartHeight,
           margin: {
-            l: 140,
-            r: 55,
+            l: Math.min(180, Math.max(100, columns.length > 12 ? 150 : 120)),
+            r: 65,
             t: 20,
-            b: 120,
+            b: Math.min(180, Math.max(100, columns.length > 12 ? 150 : 120)),
           },
-
           paper_bgcolor: "rgba(0,0,0,0)",
           plot_bgcolor: "rgba(0,0,0,0)",
-
           font: {
-            color: "#ffffff",
+            color: "#291C0E",
             family: "Inter, system-ui, sans-serif",
           },
-
           xaxis: {
             tickangle: -45,
-
+            automargin: true,
             tickfont: {
-              color: "rgba(255,255,255,0.65)",
-              size: 11,
+              color: "#6E473B",
+              size: 10,
             },
-
-            gridcolor: "rgba(255,255,255,0.04)",
-
             zeroline: false,
-
             showline: false,
           },
-
           yaxis: {
             autorange: "reversed",
-
+            automargin: true,
             tickfont: {
-              color: "rgba(255,255,255,0.65)",
-              size: 11,
+              color: "#6E473B",
+              size: 10,
             },
-
-            gridcolor: "rgba(255,255,255,0.04)",
-
             zeroline: false,
-
             showline: false,
           },
-
           hoverlabel: {
-            bgcolor: "#0d1220",
-            bordercolor: "rgba(99,102,241,0.5)",
+            bgcolor: "#F7F1E8",
+            bordercolor: "#A99A8C",
             font: {
-              color: "#ffffff",
+              color: "#291C0E",
               size: 12,
             },
           },
         }}
-
         config={{
           responsive: true,
           displayModeBar: false,
+          displaylogo: false,
         }}
-
         style={{
           width: "100%",
         }}
+        useResizeHandler
       />
     </div>
   );
