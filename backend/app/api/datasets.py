@@ -1,6 +1,7 @@
-
-from pathlib import Path
+ 
+import logging
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -10,6 +11,8 @@ from app.services.dataset_profiler import profile_dataset
 from app.services.analytics_engine import generate_insights
 from app.services.dataset_storage import save_dataset, get_dataset_path
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/datasets",
@@ -21,7 +24,7 @@ RESERVOIR_FILENAME = "reservoir summary.csv"
 
 
 def _validate_filename(filename: str) -> str:
-    """Reject unsafe filenames and unsupported file extensions."""
+    """Validate the filename and supported extension."""
     filename = filename.replace("\\", "/")
 
     if (
@@ -44,7 +47,7 @@ def _validate_filename(filename: str) -> str:
 
 
 def read_dataset(source, filename: str) -> pd.DataFrame:
-    """Read supported datasets and normalize reservoir CSV headers."""
+    """Read supported files and normalize reservoir CSV headers."""
     extension = Path(filename).suffix.lower()
 
     if extension == ".csv":
@@ -70,7 +73,7 @@ def read_dataset(source, filename: str) -> pd.DataFrame:
 
 
 def _database_settings(connection):
-    """Return SQL syntax settings for the active database driver."""
+    """Return parameter placeholders and table name for the driver."""
     is_postgres = connection.__class__.__module__.startswith("psycopg")
 
     return (
@@ -80,12 +83,13 @@ def _database_settings(connection):
 
 
 def _get_dataset_metadata(filename: str):
-    """Retrieve dataset metadata without user authentication."""
+    """Retrieve metadata for a stored dataset."""
     connection = get_connection()
     cursor = connection.cursor()
-    placeholder, table_name = _database_settings(connection)
 
     try:
+        placeholder, table_name = _database_settings(connection)
+
         cursor.execute(
             f"""
             SELECT id
@@ -115,9 +119,10 @@ async def list_datasets():
     """List all uploaded datasets."""
     connection = get_connection()
     cursor = connection.cursor()
-    _, table_name = _database_settings(connection)
 
     try:
+        _, table_name = _database_settings(connection)
+
         cursor.execute(
             f"""
             SELECT
@@ -163,7 +168,7 @@ async def list_datasets():
 
 @router.get("/{filename}/data")
 async def get_dataset_data(filename: str):
-    """Return dataset rows without authentication."""
+    """Return the rows of a stored dataset."""
     filename = _validate_filename(filename)
     _get_dataset_metadata(filename)
 
@@ -180,6 +185,7 @@ async def get_dataset_data(filename: str):
     except HTTPException:
         raise
     except Exception:
+        logger.exception("Failed to read dataset %s", filename)
         raise HTTPException(
             status_code=400,
             detail="Could not read dataset",
@@ -218,6 +224,7 @@ async def get_dataset(filename: str):
     except HTTPException:
         raise
     except Exception:
+        logger.exception("Failed to profile dataset %s", filename)
         raise HTTPException(
             status_code=400,
             detail="Could not read dataset",
@@ -234,7 +241,7 @@ async def get_dataset(filename: str):
 
 @router.post("/upload")
 async def upload_dataset(file: UploadFile = File(...)):
-    """Upload, profile, and register a dataset without authentication."""
+    """Upload, profile, and register a dataset."""
     if not file.filename:
         raise HTTPException(
             status_code=400,
@@ -248,7 +255,10 @@ async def upload_dataset(file: UploadFile = File(...)):
     filename = _validate_filename(filename)
     extension = Path(filename).suffix.lower()
 
-    contents = await file.read()
+    try:
+        contents = await file.read()
+    finally:
+        await file.close()
 
     if not contents:
         raise HTTPException(
@@ -258,23 +268,34 @@ async def upload_dataset(file: UploadFile = File(...)):
 
     try:
         df = read_dataset(BytesIO(contents), filename)
+
+        if len(df.columns) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="The dataset has no columns",
+            )
+
         profile = profile_dataset(df)
+
     except HTTPException:
         raise
     except Exception:
+        logger.exception("Failed to parse uploaded dataset %s", filename)
         raise HTTPException(
             status_code=400,
             detail="Could not read uploaded dataset",
         )
-    finally:
-        await file.close()
 
-    connection = get_connection()
-    cursor = connection.cursor()
-    placeholder, table_name = _database_settings(connection)
+    connection = None
+    cursor = None
     stored_path = None
 
     try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        placeholder, table_name = _database_settings(connection)
+
         cursor.execute(
             f"""
             SELECT id
@@ -290,9 +311,9 @@ async def upload_dataset(file: UploadFile = File(...)):
                 detail="A dataset with this filename already exists.",
             )
 
+        # Store the file only after checking for an existing record.
         stored_path = save_dataset(contents, filename)
 
-        # Authentication is disabled: no user_id is inserted.
         cursor.execute(
             f"""
             INSERT INTO {table_name} (
@@ -319,33 +340,34 @@ async def upload_dataset(file: UploadFile = File(...)):
         connection.commit()
 
     except HTTPException:
-        connection.rollback()
-
-        if stored_path:
-            try:
-                Path(stored_path).unlink(missing_ok=True)
-            except OSError:
-                pass
-
+        if connection is not None:
+            connection.rollback()
         raise
 
     except Exception:
-        connection.rollback()
-
-        if stored_path:
+        if connection is not None:
             try:
-                Path(stored_path).unlink(missing_ok=True)
-            except OSError:
-                pass
+                connection.rollback()
+            except Exception:
+                logger.exception("Failed to roll back dataset upload")
+
+        # Keep the original database exception in Render logs.
+        logger.exception(
+            "Failed to save dataset metadata for %s",
+            filename,
+        )
 
         raise HTTPException(
             status_code=500,
-            detail="Could not save dataset metadata. Check your database schema.",
+            detail="Could not save dataset metadata. Check backend logs.",
         )
 
     finally:
-        cursor.close()
-        connection.close()
+        if cursor is not None:
+            cursor.close()
+
+        if connection is not None:
+            connection.close()
 
     preview = df.head(10).fillna("").to_dict(orient="records")
 
@@ -360,7 +382,7 @@ async def upload_dataset(file: UploadFile = File(...)):
 
 @router.post("/analyze/{filename}")
 async def analyze_dataset(filename: str):
-    """Generate insights for a stored dataset without authentication."""
+    """Generate insights for a stored dataset."""
     filename = _validate_filename(filename)
     _get_dataset_metadata(filename)
 
@@ -374,9 +396,8 @@ async def analyze_dataset(filename: str):
 
     try:
         df = read_dataset(dataset_path, filename)
-    except HTTPException:
-        raise
     except Exception:
+        logger.exception("Failed to read dataset for analysis: %s", filename)
         raise HTTPException(
             status_code=400,
             detail="Could not read stored dataset",
@@ -391,6 +412,7 @@ async def analyze_dataset(filename: str):
         }
 
     except Exception:
+        logger.exception("Failed to analyze dataset %s", filename)
         raise HTTPException(
             status_code=500,
             detail="Could not analyze dataset",
