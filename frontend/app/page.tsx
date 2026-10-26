@@ -279,24 +279,37 @@ export default function Home() {
   onUploadSuccess={async (data) => {
     setDatasetResult(data);
 
-    try {
-      const formData = new FormData();
+    // UploadResponse.preview is optional, but Dataset.preview is required.
+    const normalizedData = {
+      ...data,
+      preview: data.preview ?? [],
+    };
 
+    // Make the uploaded dataset available immediately.
+    setDataset(normalizedData);
+
+    try {
       const fileInput = document.querySelector(
         'input[type="file"]'
-      ) as HTMLInputElement;
-
+      ) as HTMLInputElement | null;
       const file = fileInput?.files?.[0];
 
+      // The upload itself has already succeeded. If the selected file is
+      // no longer available in the input, keep the uploaded dataset.
       if (!file) {
-        setDataset(data);
         return;
       }
 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        throw new Error("NEXT_PUBLIC_API_URL is not configured.");
+      }
+
+      const formData = new FormData();
       formData.append("file", file);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/datasets/analyze`,
+        `${apiUrl.replace(/\/$/, "")}/datasets/analyze`,
         {
           method: "POST",
           body: formData,
@@ -304,19 +317,23 @@ export default function Home() {
       );
 
       if (!response.ok) {
-        throw new Error("Analysis request failed");
+        throw new Error(
+          `Analysis request failed with HTTP ${response.status}.`
+        );
       }
 
       const analysisData = await response.json();
 
       setDataset({
-        ...data,
+        ...normalizedData,
         analysis: analysisData.analysis,
+        preview: normalizedData.preview,
       });
     } catch (error) {
       console.error("ANALYSIS ERROR:", error);
 
-      setDataset(data);
+      // Keep the successful upload even if the extra analysis request fails.
+      setDataset(normalizedData);
     }
   }}
 />
