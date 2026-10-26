@@ -158,12 +158,19 @@ export default function ChartToolPage() {
 
           {chart ? (
             <div className="overflow-hidden rounded-2xl border border-[#D8C8B8] bg-white p-3 sm:p-5">
-              <AutoChart
-                chartType={chart.chart_type || "line"}
-                data={chart.data || []}
-                x={chart.x || "Date"}
-                y={chart.y || "Revenue"}
-              />
+              
+<AutoChart
+  chartType={chart.chart_type || "line"}
+  data={(chart.data ?? []).filter(
+    (row): row is Record<string, unknown> =>
+      typeof row === "object" &&
+      row !== null &&
+      !Array.isArray(row)
+  )}
+  x={chart.x || "Date"}
+  y={chart.y || "Revenue"}
+/>
+
             </div>
           ) : (
             <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#CDBBA9] bg-[#EDE2D6]/70 px-6 py-12 text-center">
