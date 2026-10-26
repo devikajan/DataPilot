@@ -1,7 +1,14 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import Link from "next/link";
 import {
   Search,
@@ -14,14 +21,17 @@ import {
 
 type Dataset = {
   filename: string;
-  file_type: string;
-  size_bytes: number;
+  file_type?: string;
+  size_bytes?: number;
 };
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   "https://datapilot-api-sgvj.onrender.com"
-).replace(/\/+$/, "");
+)
+  .trim()
+  .replace(/^http:\/\/https:\/\//i, "https://")
+  .replace(/\/+$/, "");
 
 const C = {
   cream: "#E7DCCE",
@@ -32,7 +42,7 @@ const C = {
   surface: "#F7F1E8",
 };
 
-async function readResponse(response: Response) {
+async function readResponse(response: Response): Promise<unknown> {
   const text = await response.text();
 
   if (!text) return {};
@@ -44,11 +54,11 @@ async function readResponse(response: Response) {
   }
 }
 
-function getErrorMessage(data: unknown, status: number) {
+function getErrorMessage(data: unknown, status: number): string {
   const body = data as {
     detail?: unknown;
     message?: unknown;
-  };
+  } | null;
 
   if (Array.isArray(body?.detail)) {
     return body.detail
@@ -61,23 +71,18 @@ function getErrorMessage(data: unknown, status: number) {
       .join("; ");
   }
 
-  if (typeof body?.detail === "string") {
-    return body.detail;
-  }
-
-  if (typeof body?.message === "string") {
-    return body.message;
-  }
+  if (typeof body?.detail === "string") return body.detail;
+  if (typeof body?.message === "string") return body.message;
 
   switch (status) {
     case 401:
-      return "The API requires authentication. Check the backend route configuration.";
+      return "Authentication is required by the API. Check the backend route configuration.";
     case 403:
       return "The API denied this request. Check backend permissions.";
     case 404:
-      return "The dataset endpoint was not found. Check the backend route.";
+      return "The requested dataset endpoint was not found. Check the backend route.";
     case 422:
-      return "The API rejected the request because required input is missing or invalid. Check the response details.";
+      return "The API rejected the request because some input is missing or invalid.";
     case 500:
       return "The backend encountered an internal error. Check the Render logs.";
     default:
@@ -85,70 +90,133 @@ function getErrorMessage(data: unknown, status: number) {
   }
 }
 
+function normalizeDataset(value: unknown): Dataset | null {
+  if (!value || typeof value !== "object") return null;
+
+  const item = value as Record<string, unknown>;
+
+  if (
+    typeof item.filename !== "string" ||
+    !item.filename.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    filename: item.filename,
+    file_type:
+      typeof item.file_type === "string"
+        ? item.file_type
+        : undefined,
+    size_bytes:
+      typeof item.size_bytes === "number"
+        ? item.size_bytes
+        : undefined,
+  };
+}
+
+function formatSize(bytes?: number): string {
+  if (
+    typeof bytes !== "number" ||
+    !Number.isFinite(bytes) ||
+    bytes < 0
+  ) {
+    return "Unknown size";
+  }
+
+  if (bytes < 1024) return `${bytes} B`;
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchDatasets = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
+  const fetchDatasets = useCallback(
+    async (options?: { background?: boolean }) => {
+      const background = options?.background ?? false;
 
-      const response = await fetch(`${API_URL}/datasets/`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
+      try {
+        if (background) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
 
-      const data = await readResponse(response);
+        setError("");
 
-      if (!response.ok) {
-        throw new Error(
-          `Could not load datasets (HTTP ${response.status}): ${getErrorMessage(data, response.status)}`
+        const response = await fetch(`${API_URL}/datasets/`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
+
+        const data = await readResponse(response);
+
+        if (!response.ok) {
+          throw new Error(
+            `Could not load datasets (HTTP ${response.status}): ${getErrorMessage(
+              data,
+              response.status
+            )}`
+          );
+        }
+
+        const body = data as {
+          datasets?: unknown;
+        } | null;
+
+        const rawList = Array.isArray(data)
+          ? data
+          : Array.isArray(body?.datasets)
+            ? body.datasets
+            : null;
+
+        if (!rawList) {
+          throw new Error(
+            "The API response did not contain a dataset list. Check the GET /datasets/ response format."
+          );
+        }
+
+        const normalized = rawList
+          .map(normalizeDataset)
+          .filter((item): item is Dataset => item !== null);
+
+        setDatasets(normalized);
+      } catch (err) {
+        console.error("Dataset loading error:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "An unexpected error occurred while loading datasets."
         );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      const parsed = data as {
-        datasets?: unknown;
-      };
-
-      const datasetList = Array.isArray(data)
-        ? data
-        : Array.isArray(parsed?.datasets)
-          ? parsed.datasets
-          : null;
-
-      if (!datasetList) {
-        throw new Error(
-          "The API responded successfully, but its response did not contain a dataset list. Check the GET /datasets/ response format."
-        );
-      }
-
-      setDatasets(datasetList as Dataset[]);
-    } catch (err) {
-      console.error("Dataset loading error:", err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while loading datasets."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     void fetchDatasets();
+
+    // The initial dataset list is loaded when the page mounts.
   }, [fetchDatasets]);
 
   const handleUploadClick = () => {
@@ -156,7 +224,7 @@ export default function DatasetsPage() {
   };
 
   async function handleFileUpload(
-    event: React.ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>
   ) {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -166,16 +234,30 @@ export default function DatasetsPage() {
     const extension = `.${file.name.split(".").pop()?.toLowerCase()}`;
     const allowedExtensions = [".csv", ".xlsx", ".xls"];
 
+    setError("");
+    setSuccess("");
+
     if (!allowedExtensions.includes(extension)) {
-      setError("Unsupported file type. Please select a CSV or Excel file.");
+      setError(
+        "Unsupported file type. Please select a CSV or Excel file."
+      );
+      input.value = "";
+      return;
+    }
+
+    if (file.size === 0) {
+      setError("The selected file is empty.");
+      input.value = "";
+      return;
+    }
+
+    if (uploading) {
       input.value = "";
       return;
     }
 
     try {
       setUploading(true);
-      setError("");
-      setSuccess("");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -192,12 +274,17 @@ export default function DatasetsPage() {
 
       if (!response.ok) {
         throw new Error(
-          `Upload failed (HTTP ${response.status}): ${getErrorMessage(data, response.status)}`
+          `Upload failed (HTTP ${response.status}): ${getErrorMessage(
+            data,
+            response.status
+          )}`
         );
       }
 
       setSuccess(`${file.name} uploaded successfully.`);
-      await fetchDatasets();
+
+      // Refresh the list without clearing the success message.
+      await fetchDatasets({ background: true });
     } catch (err) {
       console.error("Dataset upload error:", err);
 
@@ -216,21 +303,17 @@ export default function DatasetsPage() {
     const term = search.trim().toLowerCase();
 
     return datasets.filter((dataset) =>
-      dataset.filename?.toLowerCase().includes(term)
+      dataset.filename.toLowerCase().includes(term)
     );
   }, [datasets, search]);
-
-  function formatSize(bytes: number) {
-    if (!Number.isFinite(bytes) || bytes < 0) return "Unknown size";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
 
   return (
     <main
       className="min-h-screen px-5 py-8 md:px-10 md:py-10"
-      style={{ backgroundColor: C.cream, color: C.espresso }}
+      style={{
+        backgroundColor: C.cream,
+        color: C.espresso,
+      }}
     >
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -246,7 +329,10 @@ export default function DatasetsPage() {
               Datasets
             </h1>
 
-            <p className="mt-2 text-sm md:text-base" style={{ color: C.brown }}>
+            <p
+              className="mt-2 text-sm md:text-base"
+              style={{ color: C.brown }}
+            >
               Manage, explore, and analyze your datasets.
             </p>
           </div>
@@ -264,7 +350,10 @@ export default function DatasetsPage() {
             onClick={handleUploadClick}
             disabled={uploading}
             className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ backgroundColor: C.espresso, color: C.cream }}
+            style={{
+              backgroundColor: C.espresso,
+              color: C.cream,
+            }}
           >
             <Upload size={17} />
             {uploading ? "Uploading..." : "Upload Dataset"}
@@ -286,9 +375,13 @@ export default function DatasetsPage() {
             <button
               type="button"
               onClick={() => void fetchDatasets()}
-              className="inline-flex shrink-0 items-center gap-2 font-semibold underline underline-offset-4"
+              disabled={loading || refreshing}
+              className="inline-flex shrink-0 items-center gap-2 font-semibold underline underline-offset-4 disabled:opacity-50"
             >
-              <RefreshCw size={14} />
+              <RefreshCw
+                size={14}
+                className={refreshing ? "animate-spin" : ""}
+              />
               Retry
             </button>
           </div>
@@ -336,6 +429,7 @@ export default function DatasetsPage() {
           <div className="mb-5 flex items-end justify-between">
             <div>
               <h2 className="text-xl font-semibold">Your datasets</h2>
+
               <p className="mt-1 text-sm" style={{ color: C.brown }}>
                 {loading
                   ? "Retrieving your datasets..."
@@ -347,12 +441,22 @@ export default function DatasetsPage() {
               </p>
             </div>
 
-            <div
-              className="flex h-11 w-11 items-center justify-center rounded-xl"
-              style={{ backgroundColor: C.oat, color: C.espresso }}
+            <button
+              type="button"
+              onClick={() => void fetchDatasets({ background: true })}
+              disabled={loading || refreshing}
+              aria-label="Refresh datasets"
+              className="flex h-11 w-11 items-center justify-center rounded-xl transition hover:opacity-75 disabled:opacity-50"
+              style={{
+                backgroundColor: C.oat,
+                color: C.espresso,
+              }}
             >
-              <Database size={21} />
-            </div>
+              <RefreshCw
+                size={19}
+                className={refreshing ? "animate-spin" : ""}
+              />
+            </button>
           </div>
 
           {loading && (
@@ -384,7 +488,10 @@ export default function DatasetsPage() {
             >
               <div
                 className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: C.oat, color: C.espresso }}
+                style={{
+                  backgroundColor: C.oat,
+                  color: C.espresso,
+                }}
               >
                 <FileSpreadsheet size={26} />
               </div>
@@ -403,8 +510,12 @@ export default function DatasetsPage() {
                 <button
                   type="button"
                   onClick={handleUploadClick}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition hover:opacity-90"
-                  style={{ backgroundColor: C.brown, color: C.cream }}
+                  disabled={uploading}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    backgroundColor: C.brown,
+                    color: C.cream,
+                  }}
                 >
                   <Upload size={16} />
                   Choose a dataset
@@ -441,9 +552,12 @@ export default function DatasetsPage() {
                           {dataset.filename}
                         </h3>
 
-                        <p className="mt-1 text-sm" style={{ color: C.brown }}>
+                        <p
+                          className="mt-1 text-sm"
+                          style={{ color: C.brown }}
+                        >
                           {(dataset.file_type || "file")
-                            .replace(".", "")
+                            .replace(/^\./, "")
                             .toUpperCase()}
                           {" · "}
                           {formatSize(dataset.size_bytes)}
