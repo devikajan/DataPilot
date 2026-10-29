@@ -19,6 +19,7 @@ router = APIRouter(
 class AnalystRequest(BaseModel):
     dataset: str
     question: str
+    document_id: str | None = None
 
 
 @router.post("/ask")
@@ -46,10 +47,11 @@ def ask_analyst(request: AnalystRequest):
         )
 
         agent_result = ask_agent(
-            request.question,
-            dataset_context,
-            df,
-        )
+    request.question,
+    dataset_context,
+    df,
+    document_id=request.document_id,
+)
 
         return {
             "question": request.question,

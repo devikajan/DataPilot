@@ -9,6 +9,7 @@ from app.api.analyst import router as analyst_router
 from app.api.query import router as query_router
 from app.api.charts import router as charts_router
 from app.database import get_connection
+from app.api.documents import router as documents_router
 
 
 app = FastAPI(
@@ -99,3 +100,4 @@ app.include_router(datasets_router)
 app.include_router(analyst_router)
 app.include_router(query_router)
 app.include_router(charts_router)
+app.include_router(documents_router)

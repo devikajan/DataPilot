@@ -2,15 +2,39 @@ import json
 
 from app.services.openai_client import client
 from app.services.tool_registry import get_tool_descriptions, get_tool
+from app.services.rag_service import retrieve_context
 
 
-def ask_agent(question: str, dataset_context: str, df):
+def ask_agent(
+    question: str,
+    dataset_context: str,
+    df,
+    document_id: str | None = None,
+):
+    try:
+        retrieved_documents = retrieve_context(
+            question=question,
+            limit=5,
+            document_id=document_id,
+        )
+    except Exception:
+        retrieved_documents = []
+
+    document_context = "\n\n".join(
+        (
+            f"Source: {item['filename']}\n"
+            f"Content: {item['text']}"
+        )
+        for item in retrieved_documents
+    )
+
     tools = get_tool_descriptions()
 
     tool_context = "\n".join(
         f"- {tool['name']}: {tool['description']}"
         for tool in tools
     )
+
 
     # =========================================================
     # STEP 1: PLAN
