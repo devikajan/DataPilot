@@ -51,3 +51,4 @@ uploads/
 generated/
 
 backend/datasets/
+backend/.venv312/
